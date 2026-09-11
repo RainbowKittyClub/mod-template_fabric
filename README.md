@@ -7,46 +7,10 @@ drop the ones you don't need, along with `mavenLocal()`, the Modrinth/Sponge rep
 `bil_version` pin if bil goes.
 
 `rkc/STYLE.md` covers everything shared across mods: Java style, the build, linting, datagen and the
-dev-server lifecycle. This file covers only what is specific to standing a new mod up from this
-template.
-
-## Using this template
-
-Clone this repo into `rkc/mods/<name>`, then detach it from the template's own history — every
-first-party mod is its own independent repo (see the workspace `CLAUDE.md`), not a fork of this one:
-
-```
-git clone fabric_mod_skeleton rkc/mods/<name>   # run from the minecraft-dev workspace root
-cd rkc/mods/<name>
-rm -rf .git && git init
-git config core.hooksPath ../../../scripts/githooks   # re-point at the workspace-shared hooks; git init doesn't inherit this
-```
-
-Mod ids are conventionally one lowercase word (`rktweaks`, `companions`); the directory may be
-hyphenated, and the package always drops separators.
-
-Every project-specific string is the literal placeholder `CHANGEME`, or lowercase `changeme` where a
-lowercase identifier is required (`mod_id`, package segments, the mixins json filename). Find and
-replace across the whole tree, including filenames — a fresh clone carries no build output, so the
-only exclude needed is `.git` itself:
-
-```
-grep -rl CHANGEME . --exclude-dir=.git
-grep -rl changeme . --exclude-dir=.git
-```
-
-At minimum, rename:
-
-- `gradle.properties` — `mod_name`, `mod_description`, `mod_authors`, `mod_website`, `mod_issues`, `mod_license`, `maven_group`, `mod_id`, `entrypoint`
-- `settings.gradle` — `rootProject.name`
-- `src/main/java/club/rainbowkitty/changeme/CHANGEME.java` — move to match the new package/class name, update `MOD_ID`
-- `src/main/resources/changeme.mixins.json` — rename the file, update `package`, update the reference in `fabric.mod.json`'s `mixins` array
-- `src/datagen/java/club/rainbowkitty/changeme/datagen/CHANGEMEDataGenerator.java` — move to match the new package/class name, update the `fabric-datagen` entry in `fabric.mod.json`
-
-Then replace this file: delete it and rename `README.template.md` to `README.md`. That template is
-the new mod's own README — what the mod does and how to install it. Build specifics go in
-`docs/BUILDING.md` (carried along with the clone); feature plan docs go under `docs/plan/` (see
-`PLANNING.md`).
+dev-server lifecycle. This file covers what's specific to the code this template ships — the worked
+Polymer example, the dev-server task set, the Quilt caveats, the bil pin. For turning a clone of this
+repo into a new mod (detaching git history, wiring up the `gradle` submodule, renaming the `CHANGEME`
+placeholders), see the `setup` branch.
 
 ## Polymer: client-optional content
 
