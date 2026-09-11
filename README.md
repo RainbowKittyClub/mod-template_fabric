@@ -12,17 +12,27 @@ template.
 
 ## Using this skeleton
 
-Copy the directory to `rkc/mods/<name>`. Mod ids are conventionally one lowercase word
-(`rktweaks`, `companions`); the directory may be hyphenated, and the package always drops
-separators.
+Clone this repo into `rkc/mods/<name>`, then detach it from the skeleton's own history — every
+first-party mod is its own independent repo (see the workspace `CLAUDE.md`), not a fork of this one:
+
+```
+git clone fabric_mod_skeleton rkc/mods/<name>   # run from the minecraft-dev workspace root
+cd rkc/mods/<name>
+rm -rf .git && git init
+git config core.hooksPath ../../../scripts/githooks   # re-point at the workspace-shared hooks; git init doesn't inherit this
+```
+
+Mod ids are conventionally one lowercase word (`rktweaks`, `companions`); the directory may be
+hyphenated, and the package always drops separators.
 
 Every project-specific string is the literal placeholder `CHANGEME`, or lowercase `changeme` where a
 lowercase identifier is required (`mod_id`, package segments, the mixins json filename). Find and
-replace across the whole tree, including filenames:
+replace across the whole tree, including filenames — a fresh clone carries no build output, so the
+only exclude needed is `.git` itself:
 
 ```
-grep -rl CHANGEME . --exclude-dir={.git,build,.gradle}
-grep -rl changeme . --exclude-dir={.git,build,.gradle}
+grep -rl CHANGEME . --exclude-dir=.git
+grep -rl changeme . --exclude-dir=.git
 ```
 
 At minimum, rename:
