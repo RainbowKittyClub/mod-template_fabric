@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "changeme:block/example_block"
+    }
+  }
+}

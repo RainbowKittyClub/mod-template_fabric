@@ -1,0 +1,262 @@
+// Dev-server setup shared verbatim by every mod from this skeleton: the runServer/stopServer
+// lifecycle helpers, the sane-defaults seeding of `run/`, and the optional Quilt run. Nothing here
+// is mod-specific — it only reads `project.mod_id`. `build.gradle` pulls it in with `apply from:`.
+//
+// To drop Quilt support entirely: delete the QuiltMC repo, the `quiltLoader` configuration and its
+// dependencies, the `loom { runs { … } }` block, and the two Quilt tasks below (and the `quilt_*`
+// properties from gradle.properties).
+// To fall back to Loom's bare `run/`: delete the "Dev-server defaults" section and the
+// `dependsOn 'configureRunServer'` wiring.
+
+repositories {
+	maven {
+		// Quilt Loader, pulled in only by the optional `runQuiltServer` task.
+		name = 'QuiltMC'
+		url = 'https://maven.quiltmc.org/repository/release'
+	}
+}
+
+configurations {
+	// Consumed only by `runQuiltServer`, which swaps it in for fabric-loader. Kept off every other
+	// classpath so a normal build never sees Quilt Loader.
+	quiltLoader
+}
+
+dependencies {
+	// For `runQuiltServer` only. Quilt Loader loads Fabric mods natively; this lets a Fabric build be
+	// smoke-tested under Quilt without a separate project. Its runtime libraries live in the loader's
+	// installer manifest (quilt-loader-<ver>.json), not in maven metadata, so Loom won't pull them in
+	// the way it does for fabric-loader — mirror that list here and refresh it when bumping the version.
+	quiltLoader "org.quiltmc:quilt-loader:${project.quilt_loader_version}"
+	quiltLoader "net.fabricmc:sponge-mixin:${project.quilt_sponge_mixin_version}"
+	quiltLoader "org.quiltmc:quilt-json5:${project.quilt_json5_version}"
+	quiltLoader "org.quiltmc:quilt-config:${project.quilt_config_version}"
+	quiltLoader "org.ow2.asm:asm:${project.quilt_asm_version}"
+	quiltLoader "org.ow2.asm:asm-analysis:${project.quilt_asm_version}"
+	quiltLoader "org.ow2.asm:asm-commons:${project.quilt_asm_version}"
+	quiltLoader "org.ow2.asm:asm-tree:${project.quilt_asm_version}"
+	quiltLoader "org.ow2.asm:asm-util:${project.quilt_asm_version}"
+	quiltLoader "io.github.llamalad7:mixinextras-fabric:${project.quilt_mixinextras_version}"
+}
+
+def devRunDir = 'run'
+def quiltRunDir = 'run-quilt'
+// How long stopServer waits for a dev server to shut down before giving up.
+def stopRequestTimeoutSeconds = 30
+
+// Loom writes one launch config per project, so its path identifies this checkout's dev servers and
+// nothing else. Matching on the main class or on 'runServer' would also match a sibling mod's server
+// in the same workspace, and matching on the port would miss a reconfigured one. The extra -D marker
+// on the Quilt run (set below) is what tells the two apart; it must stay a valid -D system property.
+def loomLaunchMarker = file('.gradle/loom-cache/launch.cfg').absolutePath
+def quiltServerMarker = "-D${project.mod_id}.devserver=quilt".toString()
+
+def stopDevServer = { String label, Closure<Boolean> matches ->
+	def running = []
+	ProcessHandle.allProcesses().forEach { handle ->
+		def cmd = handle.info().commandLine().orElse('')
+		if (cmd.contains(loomLaunchMarker) && matches(cmd)) {
+			running << handle
+		}
+	}
+	if (running.isEmpty()) {
+		logger.lifecycle("No ${label} running.")
+		return
+	}
+	// Asked to stop rather than killed: the server traps the signal and saves the world on its way
+	// out, which a dev world that has been built in still deserves.
+	running.each { it.destroy() }
+	running.each { handle ->
+		try {
+			handle.onExit().get(stopRequestTimeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
+			logger.lifecycle("Stopped ${label} (pid ${handle.pid()}).")
+		} catch (java.util.concurrent.TimeoutException ignored) {
+			throw new GradleException(
+					"${label} (pid ${handle.pid()}) ignored the stop request for ${stopRequestTimeoutSeconds}s.")
+		}
+	}
+}
+
+tasks.register('stopServer') {
+	group = 'fabric'
+	description = 'Stops the dev server started by runServer, if one is running.'
+	doLast { stopDevServer('dev server', { cmd -> !cmd.contains(quiltServerMarker) }) }
+}
+
+// --- Optional: run the mod under Quilt Loader instead of Fabric Loader ----------------------------
+// `runQuiltServer` reuses the same dev workspace as `runServer` (its own gitignored `run-quilt/`) but
+// with Quilt's Knot entrypoint and quilt-loader swapped in for fabric-loader on the run classpath.
+//
+// PARTLY WORKING on 26.2 as last checked: it boots (Quilt Loader starts a MC 26.2 server, RCON and
+// the seeded world come up) but Knot loads ONLY minecraft/quilt-loader/mixinextras — not this mod,
+// fabric-api or polymer. Loom splits the mod across build/classes/java/main + build/resources/main
+// and rejoins them with the `fabric.classPathGroups` sysprop, which fabric-loader reads in dev and
+// Knot doesn't; there's also no quilted-fabric-loader here to pick up Fabric mods. So this currently
+// smoke-tests vanilla-under-Quilt, not the mod. Fixing it needs a classPathGroups equivalent for
+// Knot plus a QFL build — and Quilt has no stable 26.2 release yet. See README "Quilt dev server".
+loom {
+	runs {
+		// Default client run shares run/ with runServer; both regenerate polymer/resource_pack.zip and
+		// whichever finishes last wins, desyncing it from the hash the server already advertised.
+		client {
+			runDir 'run/client'
+		}
+		quiltServer {
+			server()
+			configName = 'Quilt Server'
+			runDir quiltRunDir
+			// Override, not defaultMainClass: Loom otherwise takes the entrypoint from fabric-loader's
+			// bundled fabric-installer.json, which names Fabric's Knot — a class this run no longer has.
+			getMainClass().set('org.quiltmc.loader.impl.launch.knot.KnotServer')
+			vmArgs quiltServerMarker
+			ideConfigGenerated false
+		}
+	}
+}
+
+tasks.named('runQuiltServer', JavaExec) {
+	// Hand Knot quilt-loader and its own mixin/loader stack instead of fabric-loader's: drop
+	// fabric-loader plus the libs quilt ships its own copy of, so those are not on the classpath
+	// twice at slightly different versions. FileCollection.filter is lazy — nothing resolves here.
+	classpath = configurations.quiltLoader + classpath.filter {
+		!(it.name ==~ /(fabric-loader|sponge-mixin|mixinextras-fabric)-.*\.jar/)
+	}
+}
+
+tasks.register('stopQuiltServer') {
+	group = 'fabric'
+	description = 'Stops the dev server started by runQuiltServer, if one is running.'
+	doLast { stopDevServer('Quilt dev server', { cmd -> cmd.contains(quiltServerMarker) }) }
+}
+
+// --- Dev-server defaults -------------------------------------------------------------------------
+// A bare `run/` from `runServer` stops on the unaccepted EULA and has rcon off (which devserver.sh
+// needs). This seeds a usable dev world once: accept the EULA, a superflat creative world with
+// every experiment datapack on, rcon open, no watchdog, command blocks on, no mob spawning / block
+// drops / time advance, and an ops list. Everything is merge-if-absent — a hand edit always wins,
+// and `rm -rf run/` resets to these.
+def devServerOps = ['Kalic0', 'LuckySkips']
+
+def seedDevServer = { File runDir ->
+	runDir.mkdirs()
+
+	def eula = new File(runDir, 'eula.txt')
+	if (!eula.exists() || !eula.text.contains('eula=true')) {
+		eula.text = 'eula=true\n'
+	}
+
+	// server.properties: append only the keys the file does not already mention.
+	def defaults = [
+			'online-mode'             : 'false',
+			'gamemode'                : 'creative',
+			'level-type'              : 'minecraft:flat',
+			'generator-settings'      : '{"biome":"minecraft:plains","lakes":false,"features":false,' +
+					'"structure_overrides":[],"layers":[{"block":"minecraft:bedrock","height":1},' +
+					'{"block":"minecraft:smooth_stone","height":10}]}',
+			// Every 26.2 experiment datapack. Only binds at world creation.
+			'initial-enabled-packs'   : 'vanilla,minecart_improvements,redstone_experiments,trade_rebalance',
+			'pause-when-empty-seconds': '0',
+			'max-tick-time'           : '-1',
+			'spawn-protection'        : '0',
+			'sync-chunk-writes'       : 'false',
+			'enable-rcon'             : 'true',
+			'rcon.port'               : project.dev_rcon_port,
+			'rcon.password'           : project.dev_rcon_password,
+			'server-port'             : project.dev_server_port,
+			'query.port'              : project.dev_server_port,
+			'motd'                    : "${project.mod_id} dev".toString(),
+	]
+	def props = new File(runDir, 'server.properties')
+	def named = props.exists()
+			? props.readLines().collect { it.split('=', 2)[0].trim() } as Set
+			: [] as Set
+	def missing = defaults.findAll { k, v -> !named.contains(k) }
+	if (!missing.isEmpty()) {
+		props.append(missing.collect { k, v -> "${k}=${v}" }.join('\n') + '\n')
+	}
+
+	// Op list. Offline-mode UUIDs (online-mode=false above), matching UUIDUtil.createOfflinePlayerUUID.
+	def ops = new File(runDir, 'ops.json')
+	if (!ops.exists()) {
+		ops.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(
+				devServerOps.collect { name -> [
+						uuid               : UUID.nameUUIDFromBytes("OfflinePlayer:${name}".getBytes('UTF-8')).toString(),
+						name               : name,
+						level              : 4,
+						bypassesPlayerLimit: false,
+				] })) + '\n'
+	}
+
+	// Game rules can't be set from server.properties. Ship a tiny world datapack whose #load hook
+	// applies them once per world (a storage flag guards it, so they stay editable afterwards).
+	// Auto-loaded from world/datapacks/ on every boot, existing worlds included.
+	def pack = new File(runDir, 'world/datapacks/zz_dev_defaults')
+	if (!pack.exists()) {
+		new File(pack, 'data/dev_defaults/function').mkdirs()
+		new File(pack, 'data/minecraft/tags/function').mkdirs()
+		def packFormat = project.dev_datapack_pack_format
+		new File(pack, 'pack.mcmeta').text =
+				'{"pack":{"description":"dev-server defaults","min_format":[' + packFormat +
+						',1],"max_format":' + packFormat + '}}\n'
+		new File(pack, 'data/minecraft/tags/function/load.json').text =
+				'{"values":["dev_defaults:load"]}\n'
+		new File(pack, 'data/dev_defaults/function/load.mcfunction').text =
+				'execute unless data storage dev_defaults:state {applied:1b} ' +
+						'run function dev_defaults:apply\n'
+		new File(pack, 'data/dev_defaults/function/apply.mcfunction').text = [
+				'gamerule command_blocks_work true',
+				'gamerule advance_time false',
+				'gamerule block_drops false',
+				'gamerule spawn_mobs false',
+				'gamerule spawn_monsters false',
+				'gamerule spawn_patrols false',
+				'gamerule spawn_phantoms false',
+				'gamerule spawn_wandering_traders false',
+				'gamerule spawn_wardens false',
+				'data modify storage dev_defaults:state applied set value 1b',
+				'',
+		].join('\n')
+	}
+}
+
+// The client run (run/client, see the loom { runs { client { ... } } } block above) has no mods/ of
+// its own — it symlinks to run/mods so it sees the same third-party mods as the dev server without
+// duplicating jars. Loom recreates run/client/mods as a plain directory if it's missing (e.g. after
+// wiping run/client/), so re-link it before every runClient rather than relying on it staying put.
+def ensureClientModsSymlink = {
+	def modsDir = file("${devRunDir}/client/mods")
+	def modsPath = modsDir.toPath()
+	if (java.nio.file.Files.isSymbolicLink(modsPath)) {
+		return
+	}
+	if (modsDir.exists()) {
+		if (modsDir.isDirectory() && modsDir.list().length == 0) {
+			modsDir.delete()
+		} else {
+			logger.warn("${modsPath} exists and is not an empty directory; leaving it as-is instead " +
+					'of symlinking it to run/mods.')
+			return
+		}
+	}
+	modsDir.parentFile.mkdirs()
+	java.nio.file.Files.createSymbolicLink(modsPath, java.nio.file.Paths.get('../mods'))
+}
+
+tasks.register('configureRunServer') {
+	group = 'fabric'
+	description = 'Seeds run/ and run-quilt/ with EULA acceptance and sane dev-server defaults.'
+	doLast {
+		seedDevServer(file(devRunDir))
+		seedDevServer(file(quiltRunDir))
+	}
+}
+
+tasks.register('configureRunClient') {
+	group = 'fabric'
+	description = 'Symlinks run/client/mods to run/mods.'
+	doLast { ensureClientModsSymlink() }
+}
+
+tasks.named('runServer') { dependsOn 'configureRunServer' }
+tasks.named('runQuiltServer') { dependsOn 'configureRunServer' }
+tasks.named('runClient') { dependsOn 'configureRunClient' }
