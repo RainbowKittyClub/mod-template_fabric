@@ -10,9 +10,9 @@ drop the ones you don't need, along with `mavenLocal()`, the Modrinth/Sponge rep
 dev-server lifecycle. This file covers only what is specific to standing a new mod up from this
 template.
 
-## Using this skeleton
+## Using this template
 
-Clone this repo into `rkc/mods/<name>`, then detach it from the skeleton's own history — every
+Clone this repo into `rkc/mods/<name>`, then detach it from the template's own history — every
 first-party mod is its own independent repo (see the workspace `CLAUDE.md`), not a fork of this one:
 
 ```
@@ -45,12 +45,12 @@ At minimum, rename:
 
 Then replace this file: delete it and rename `README.template.md` to `README.md`. That template is
 the new mod's own README — what the mod does and how to install it. Build specifics go in
-`docs/BUILDING.md` (carried along with the copy); feature plan docs go under `docs/plan/` (see
+`docs/BUILDING.md` (carried along with the clone); feature plan docs go under `docs/plan/` (see
 `PLANNING.md`).
 
 ## Polymer: client-optional content
 
-The skeleton ships one worked example — a block, `changeme:example_block` — of serving *real*
+The template ships one worked example — a block, `changeme:example_block` — of serving *real*
 content (correct hitbox, real registry id, the mod's own models) to clients that run this mod, and
 a Polymer substitute to everyone else, decided **per connection** from Polymer's networking
 handshake. What each client sees:
@@ -121,7 +121,7 @@ every value below can be hand-edited afterwards and the edit sticks; `rm -rf run
   so the rules stay editable) that forces `command_blocks_work` on and turns off `advance_time`,
   `block_drops` and all `spawn_*` rules.
 
-`dev_server_port` / `dev_rcon_port` carry skeleton defaults — give a mod that runs its dev server next
+`dev_server_port` / `dev_rcon_port` carry template defaults — give a mod that runs its dev server next
 to another its own values in `gradle.properties`, outside 25565–25567 (Docker publishes that range).
 The world settings and `initial-enabled-packs` only bind at world creation, so change them *before*
 the first `runServer` or delete `run/world/`. Delete the "Dev-server defaults" section of `gradle/devserver.gradle` (and

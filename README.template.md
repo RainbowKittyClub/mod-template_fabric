@@ -15,9 +15,9 @@ Drop `changeme-<version>.jar` into `mods/`.
 _Answer the three things an installer cannot guess, and delete the ones that don't apply:_
 
 - _Required dependencies with versions — anything in `fabric.mod.json`'s `depends` beyond Fabric API
-  and loader. Polymer is only in `suggests` if the mod kept the skeleton's client-optional wiring;
+  and loader. Polymer is only in `suggests` if the mod kept the template's client-optional wiring;
   say whether it's actually required._
-- _Whether vanilla clients work unmodified. With the skeleton's default wiring: yes — a vanilla
+- _Whether vanilla clients work unmodified. With the template's default wiring: yes — a vanilla
   client is offered a **declinable** resource pack (server autohost config permitting) and sees
   vanilla-ish fallbacks if it declines; a client running this mod sees the real content and needs
   no pack._

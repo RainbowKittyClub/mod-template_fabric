@@ -1,4 +1,4 @@
-// Dev-server setup shared verbatim by every mod from this skeleton: the runServer/stopServer
+// Dev-server setup shared verbatim by every mod from this template: the runServer/stopServer
 // lifecycle helpers, the sane-defaults seeding of `run/`, and the optional Quilt run. Nothing here
 // is mod-specific — it only reads `project.mod_id`. `build.gradle` pulls it in with `apply from:`.
 //
