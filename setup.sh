@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 # Run from inside a fresh `git clone` of fabric_mod_skeleton (this, the main branch), before
-# committing anything else. Pulls in the template branch's files, detaches from the template's own
-# history, wires up the shared gradle/ submodule, copies the boilerplate that has to live at the
-# repo root out of it, and deletes itself. See this branch's README.md for the manual equivalent,
-# and for the placeholder-renaming step this does NOT do.
+# committing anything else. See README.md for what this does command-by-command, why the gradle
+# submodule's files are symlinked rather than copied, and the placeholder-renaming step this does
+# NOT do.
 set -euo pipefail
 
 template_url="ssh://git@github.com/RainbowKittyClub/mod-template_fabric"
 
-# Vendor the template branch's files (source, docs, its own README) into the working tree,
-# overwriting this branch's own README.md in the process — that's expected, it was only ever a
-# bootstrap doc.
+# Vendor the template branch's files (source, docs, its future README.template.md) into the
+# working tree. This branch has no README.md of its own for checkout to collide with - the doc
+# you're reading now stays put until the very last line of this script replaces it.
 git fetch -q "$template_url" template
 git checkout -q FETCH_HEAD -- .
 
@@ -18,18 +17,23 @@ git checkout -q FETCH_HEAD -- .
 rm -rf .git
 git init -q
 
-# Wire up the shared gradle submodule, then copy out the pieces Gradle's CLI needs at the repo
-# root (it only looks for build.gradle/settings.gradle in the current directory) or that need to
-# diverge per mod. The wrapper jar/properties and devserver.gradle stay referenced in place inside
-# gradle/ — see the gradle branch's README for why the split falls where it does.
+# Wire up the shared gradle submodule. Its build.gradle/settings.gradle/wrapper scripts are
+# symlinked in, not copied, so they stay versioned in exactly one place instead of forking per mod;
+# only gradle.properties is real per-mod state, so it's copied (from the CHANGEME-templated
+# gradle.properties.template) rather than symlinked.
 git submodule add -q -b gradle "$template_url" gradle
-cp gradle/gradlew gradle/gradlew.bat gradle/build.gradle gradle/settings.gradle .
+ln -s gradle/gradlew gradlew
+ln -s gradle/gradlew.bat gradlew.bat
+ln -s gradle/build.gradle build.gradle
+ln -s gradle/settings.gradle settings.gradle
 cp gradle/gradle.properties.template gradle.properties
-chmod +x gradlew gradlew.bat
 
 git config core.hooksPath ../../../scripts/githooks
 
-echo "Template pulled in, gradle/ submodule wired up, build files copied into place."
-echo "Next: rename the CHANGEME/changeme placeholders (see README.md / README.template.md), then git add -A && git commit."
+# This branch's job is done - hand off to the template's own README.
+mv README.template.md README.md
+
+echo "Template pulled in, gradle/ submodule wired up, build files symlinked into place."
+echo "Next: rename the CHANGEME/changeme placeholders (see README.md), then git add -A && git commit."
 
 rm -- "$0"
