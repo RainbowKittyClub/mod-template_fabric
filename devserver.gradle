@@ -225,6 +225,13 @@ def seedDevServer = { File runDir ->
 // duplicating jars. Loom recreates run/client/mods as a plain directory if it's missing (e.g. after
 // wiping run/client/), so re-link it before every runClient rather than relying on it staying put.
 def ensureClientModsSymlink = {
+	// The symlink's target has to exist first: Fabric Loader's own mod discovery treats a dangling
+	// symlink as absent and tries `Files.createDirectory` on it, which throws
+	// FileAlreadyExistsException on a path that already exists as a (broken) link. Matters when
+	// runClient is the very first task run in a checkout, before runServer has ever created run/mods.
+	file(devRunDir).mkdirs()
+	file("${devRunDir}/mods").mkdirs()
+
 	def modsDir = file("${devRunDir}/client/mods")
 	def modsPath = modsDir.toPath()
 	if (java.nio.file.Files.isSymbolicLink(modsPath)) {
