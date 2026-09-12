@@ -9,4 +9,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = 'changeme'
+// No CHANGEME placeholder here: this file is symlinked in from the shared gradle submodule and
+// stays identical across every mod, so the name has to come from the one file that's actually
+// per-mod — gradle.properties, copied (not symlinked) into place by setup.sh.
+rootProject.name = providers.gradleProperty('mod_id').get()
