@@ -23,7 +23,25 @@ cd rkc/mods/<name>
 ./setup.sh
 ```
 
-`setup.sh` does the following, then deletes itself:
+`setup.sh` first prompts for the answers it needs, then does everything below in one pass and
+deletes itself. Nothing is touched until every prompt is answered, so Ctrl-C mid-prompt leaves a
+clean checkout:
+
+- **Mod id** (one lowercase word, e.g. `rktweaks`) — required, no default. The directory may be
+  hyphenated (`rkc/mods/minecart-tweaks`), but the id itself never is.
+- **Entrypoint class name** — defaults to `Main`.
+- **Display name** — defaults to the mod id, capitalized.
+- **Author(s), comma-separated** — defaults to `git config user.name` if set.
+- **One-line description** — required, no default.
+- **GitHub repo URL** — defaults to `https://github.com/RainbowKittyClub/<mod id>`; `mod_issues` is
+  always derived as `<that>/issues`, not asked separately.
+- **License** — defaults to `MIT`.
+
+`maven_group` isn't asked: it's always `club.rainbowkitty.<mod id>`, matching every first-party mod,
+since the shipped source is already laid out under `src/main/java/club/rainbowkitty/` — a different
+group would mismatch the package the entrypoint moves to below.
+
+With those answers in hand, `setup.sh`:
 
 1. Fetches the `template` branch and checks its files into the working tree.
 2. `rm -rf .git && git init` — detaches from the template's own history; every first-party mod is
@@ -33,36 +51,22 @@ cd rkc/mods/<name>
    the root — Gradle's CLI only looks for these in the current directory, but they're still versioned
    in exactly one place (the `gradle` branch), not forked into every mod that uses this template.
 5. Copies `gradle/gradle.properties.template` to `gradle.properties` — this one **is** copied, not
-   symlinked, since it's real per-mod state (`mod_id`, `mod_name`, ...), not shared boilerplate.
+   symlinked, since it's real per-mod state — then fills in the answers above.
 6. `git config core.hooksPath ../../../scripts/githooks` — re-points at the workspace-shared hooks,
    since `git init` doesn't inherit this.
-7. `mv README.template.md README.md` — replaces this file with the new mod's own (currently blank)
+7. Moves the `CHANGEME`/`changeme`-named source into place under the real package/class names
+   (`src/main/java/club/rainbowkitty/<mod id>/<EntrypointClass>.java`, the datagen class, the mixins
+   json, the `assets`/`data` namespace directories), then replaces every remaining `CHANGEME` and
+   `changeme` occurrence in file *contents* — package declarations, class references
+   (`CHANGEME.MOD_ID`), the `mixins`/`fabric-datagen` entries in `fabric.mod.json`, resource
+   namespaces — excluding `.git` and the `gradle` submodule, which have none. `settings.gradle`'s
+   `rootProject.name` was never a placeholder to begin with; it derives itself from
+   `gradle.properties`'s `mod_id` at build time.
+8. `mv README.template.md README.md` — replaces this file with the new mod's own (now-renamed)
    README.
 
-## Renaming the placeholders
-
-Every project-specific string is the literal placeholder `CHANGEME`, or lowercase `changeme` where
-a lowercase identifier is required (`mod_id`, package segments, the mixins json filename). Find and
-replace across the whole tree, including filenames — exclude `.git` and the `gradle` submodule
-(nothing in it needs renaming; `settings.gradle`'s `rootProject.name` already derives itself from
-`gradle.properties`'s `mod_id` at build time):
-
-```
-grep -rl CHANGEME . --exclude-dir={.git,gradle}
-grep -rl changeme . --exclude-dir={.git,gradle}
-```
-
-At minimum, rename:
-
-- `gradle.properties` — `mod_name`, `mod_description`, `mod_authors`, `mod_website`, `mod_issues`, `mod_license`, `maven_group`, `mod_id`, `entrypoint`
-- `src/main/java/club/rainbowkitty/changeme/CHANGEME.java` — move to match the new package/class name, update `MOD_ID`
-- `src/main/resources/changeme.mixins.json` — rename the file, update `package`, update the reference in `fabric.mod.json`'s `mixins` array
-- `src/datagen/java/club/rainbowkitty/changeme/datagen/CHANGEMEDataGenerator.java` — move to match the new package/class name, update the `fabric-datagen` entry in `fabric.mod.json`
-
-Mod ids are conventionally one lowercase word (`rktweaks`, `companions`); the directory may be
-hyphenated, and the package always drops separators. Then fill in `README.md` (already swapped in
-from `README.template.md` by `setup.sh`): what the mod does and how to install it. Build specifics go
-in `docs/BUILDING.md`; feature plan docs go under `docs/plan/` (see `PLANNING.md`).
+Fill in the swapped-in `README.md`: what the mod does and how to install it. Build specifics go in
+`docs/BUILDING.md`; feature plan docs go under `docs/plan/` (see `PLANNING.md`).
 
 ## Polymer: client-optional content
 
