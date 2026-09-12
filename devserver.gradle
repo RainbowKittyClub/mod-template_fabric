@@ -1,6 +1,7 @@
 // Dev-server setup shared verbatim by every mod from this template: the runServer/stopServer
-// lifecycle helpers, the sane-defaults seeding of `run/`, and the optional Quilt run. Nothing here
-// is mod-specific — it only reads `project.mod_id`. `build.gradle` pulls it in with `apply from:`.
+// lifecycle helpers, the sane-defaults seeding of `run/` and `run/client`, and the optional Quilt
+// run. Nothing here is mod-specific — it only reads `project.mod_id`. `build.gradle` pulls it in
+// with `apply from:`.
 //
 // To drop Quilt support entirely: delete the QuiltMC repo, the `quiltLoader` configuration and its
 // dependencies, the `loom { runs { … } }` block, and the two Quilt tasks below (and the `quilt_*`
@@ -251,10 +252,65 @@ tasks.register('configureRunServer') {
 	}
 }
 
+// A bare run/client stops at the accessibility onboarding screen, the multiplayer safety warning
+// and an empty server list, and defaults music to full volume — none of which help a dev client
+// that only ever points at this mod's own dev server. Same merge-if-absent rule as seedDevServer: a
+// hand edit always wins, and `rm -rf run/client/` resets to these.
+def seedDevClient = { File runDir ->
+	runDir.mkdirs()
+
+	def defaults = [
+			onboardAccessibility  : 'false',
+			skipMultiplayerWarning: 'true',
+			joinedFirstServer     : 'true',
+			soundCategory_music   : '0.0',
+	]
+	def optionsFile = new File(runDir, 'options.txt')
+	def named = optionsFile.exists()
+			? optionsFile.readLines().collect { it.split(':', 2)[0].trim() } as Set
+			: [] as Set
+	def missing = defaults.findAll { k, v -> !named.contains(k) }
+	if (!missing.isEmpty()) {
+		optionsFile.append(missing.collect { k, v -> "${k}:${v}" }.join('\n') + '\n')
+	}
+
+	// servers.dat is NBT, not text, and net.minecraft classes aren't on the buildscript classpath
+	// (Loom only maps them onto the mod's own compile/run classpath) — so this writes the handful of
+	// tags ServerData/ServerList actually read (root compound -> "servers" list -> one compound with
+	// "name"/"ip" strings) by hand instead of going through Mojang's writer.
+	def serversFile = new File(runDir, 'servers.dat')
+	if (!serversFile.exists()) {
+		def writeNbtString = { DataOutputStream out, String s ->
+			def bytes = s.getBytes('UTF-8')
+			out.writeShort(bytes.length)
+			out.write(bytes)
+		}
+		serversFile.withDataOutputStream { out ->
+			out.writeByte(0x0A)  // TAG_Compound (root, unnamed)
+			out.writeShort(0)
+			out.writeByte(0x09)  // TAG_List
+			writeNbtString(out, 'servers')
+			out.writeByte(0x0A)  // list element type: TAG_Compound
+			out.writeInt(1)      // element count
+			out.writeByte(0x08)  // TAG_String
+			writeNbtString(out, 'name')
+			writeNbtString(out, "${project.mod_id} dev".toString())
+			out.writeByte(0x08)  // TAG_String
+			writeNbtString(out, 'ip')
+			writeNbtString(out, "localhost:${project.dev_server_port}".toString())
+			out.writeByte(0x00)  // TAG_End: closes the list element
+			out.writeByte(0x00)  // TAG_End: closes the root compound
+		}
+	}
+}
+
 tasks.register('configureRunClient') {
 	group = 'fabric'
-	description = 'Symlinks run/client/mods to run/mods.'
-	doLast { ensureClientModsSymlink() }
+	description = 'Symlinks run/client/mods to run/mods and seeds run/client with dev-client defaults.'
+	doLast {
+		ensureClientModsSymlink()
+		seedDevClient(file("${devRunDir}/client"))
+	}
 }
 
 tasks.named('runServer') { dependsOn 'configureRunServer' }
