@@ -35,7 +35,7 @@ clean checkout:
 - **One-line description** — required, no default.
 - **GitHub repo URL** — defaults to `https://github.com/RainbowKittyClub/<mod id>`; `mod_issues` is
   always derived as `<that>/issues`, not asked separately.
-- **License** — defaults to `MIT`.
+- **License** — defaults to `Unlicense`.
 
 `maven_group` isn't asked: it's always `club.rainbowkitty.<mod id>`, matching every first-party mod,
 since the shipped source is already laid out under `src/main/java/club/rainbowkitty/` — a different

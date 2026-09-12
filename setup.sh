@@ -40,7 +40,7 @@ default_author=$(git config user.name 2>/dev/null || true)
 prompt mod_authors "Author(s), comma-separated" "${default_author:-}"
 prompt mod_description "One-line description" ""
 prompt mod_website "GitHub repo URL" "https://github.com/RainbowKittyClub/$mod_id"
-prompt mod_license "License" "MIT"
+prompt mod_license "License" "Unlicense"
 
 # Not prompted: every first-party mod uses this exact group, and the shipped source is already
 # laid out under src/main/java/club/rainbowkitty/ - a different group here would mismatch the
