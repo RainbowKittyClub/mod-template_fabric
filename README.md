@@ -8,9 +8,10 @@ drop the ones you don't need, along with `mavenLocal()`, the Modrinth/Sponge rep
 
 `rkc/STYLE.md` covers everything shared across mods: Java style, the build, linting, datagen and the
 dev-server lifecycle. This file covers what's specific to the code this template ships — the worked
-Polymer example, the dev-server task set, the Quilt caveats, the bil pin. For turning a clone of this
-repo into a new mod (detaching git history, wiring up the `gradle` submodule, renaming the `CHANGEME`
-placeholders), see the `setup` branch.
+Polymer example, the dev-server task set, the Quilt caveats, the bil pin. This branch isn't meant to
+be cloned directly: `main` is the clone target, and its `setup.sh` pulls this branch's files in.
+`build.gradle`, `settings.gradle`, `gradle.properties` and the wrapper scripts live on the `gradle`
+branch instead, since they're identical across every mod — `setup.sh` copies them into place too.
 
 ## Polymer: client-optional content
 
