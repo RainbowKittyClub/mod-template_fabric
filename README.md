@@ -1,7 +1,7 @@
 # gradle (shared build boilerplate)
 
-Everything generic enough to be identical across every mod built from `fabric_mod_skeleton`:
-the Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`), `devserver.gradle`, `build.gradle`,
+Everything generic enough to be identical across every mod built from this template: the Gradle
+wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`), `devserver.gradle`, `build.gradle`,
 `settings.gradle`, and `gradle.properties.template` (the `CHANGEME`-templated `gradle.properties`,
 named `.template` here so it's never mistaken for a real one).
 
@@ -40,3 +40,29 @@ than copied: `rootProject.name` is derived at build time from `gradle.properties
 over one shared file.
 
 See the `main` branch for the full new-mod bootstrap sequence.
+
+## How one `build.gradle` covers every mod
+
+`build.gradle` is symlinked, so it is the *same file* in every mod — it can hold no per-mod
+literals. Two mechanisms keep it that way.
+
+**Optional features are gated on a `gradle.properties` key.** Present means on; absent means the
+whole block is skipped. Delete the key rather than setting it to a falsey value.
+
+| Key | Turns on |
+| --- | --- |
+| `polymer_version` | the Polymer dependency |
+| `bil_version` | Blockbench Import Library, plus the `fabric_permissions_api_version` JiJ it needs |
+| `enable_datagen` / `datagen_client` | Fabric datagen in its own source set, and the `generateAssets` alias |
+| `kalic0re_version` / `kalic0re_shared_packages` | Shadow, and relocating the named `common/` helpers into this jar |
+| `library_only` | fabric-api and Polymer as `compileOnly`, for a jar that is never installed |
+| `dev_server_port` | `gradle/devserver.gradle` — seeded `run/` world, rcon, the Quilt run |
+
+Two more are wired on presence of a *file*, since the file is already the declaration and a second
+switch could only disagree with it: `src/main/resources/<mod_id>.classtweaker` sets
+`loom.accessWidenerPath`, and a `LICENSE` gets bundled into the jar.
+
+**Anything left over goes in `build.mod.gradle`** — an optional file at the mod's root, applied last
+so it can reconfigure any task `build.gradle` registered. This is where per-mod dependencies, extra
+run arguments and checks over the mod's own content live. Keep it small: logic that more than one
+mod needs belongs in `build.gradle` behind a new gate instead.
