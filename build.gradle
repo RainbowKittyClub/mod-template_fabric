@@ -1,7 +1,14 @@
+// Shared build logic for every mod built from this template. This file is symlinked in from the
+// `gradle/` submodule, so it must stay generic: an optional feature is either gated on a
+// gradle.properties key or lives in the mod's own build.mod.gradle, applied at the very bottom.
 plugins {
 	id 'base'
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 	id 'maven-publish'
+	// A plugins block cannot be conditional, and only mods that move a library's packages in need
+	// Shadow. `apply false` just puts it on the buildscript classpath; the kalic0re block below is
+	// what actually applies it, so a mod that doesn't shade pays nothing.
+	id 'com.gradleup.shadow' version "${shadow_version}" apply false
 }
 
 java.sourceCompatibility = JavaVersion.toVersion(project.java_version)
@@ -14,22 +21,10 @@ base {
 version = project.mod_version
 group = project.maven_group
 
-// A dedicated source set keeps datagen's own imports out of this mod's jar, and lets
-// @Environment(CLIENT)-only providers (item models, equipment assets, anything needing a real
-// texture/model registry) run at all: `client = true` boots a full Minecraft client instance to
-// generate, then exits before the window is ever usable.
-fabricApi {
-	configureDataGeneration {
-		modId = project.mod_id
-		client = true
-		createSourceSet = true
-	}
-}
-
 repositories {
-	// bil releases go to CurseForge, which is not a maven, and maven.tomalbrc.de carries nothing past
-	// 1.1.13+1.21 — no 26.x coordinate exists to resolve, so bil_version comes from a local build.
-	// See CLAUDE.md for how to build it.
+	// kalic0re is published nowhere public, and bil releases go to CurseForge (not a maven) while
+	// maven.tomalbrc.de stops at 1.1.13+1.21 — no 26.x coordinate exists to resolve. Both come from
+	// a local build; see CLAUDE.md.
 	mavenLocal()
 	maven {
 		name = 'Nucleoid'
@@ -46,26 +41,176 @@ repositories {
 	}
 }
 
+// A library_only mod is never installed and never runs — consumers move its packages in and declare
+// these themselves. compileOnly keeps a runtime claim it cannot honour out of the published
+// metadata, so a consumer inherits nothing it then has to suppress.
+def apiScope = project.findProperty('library_only')?.toBoolean() ? 'compileOnly' : 'implementation'
+
+// --- Datagen ------------------------------------------------------------------------------------
+// Opt in with enable_datagen. A dedicated source set keeps datagen's own imports out of the mod's
+// jar. datagen_client=true boots a real client instance to generate, which is what
+// @Environment(CLIENT) providers (item models, equipment assets — anything touching the texture or
+// model registry) need; leave it false when every provider just writes JSON, and datagen runs
+// server-side without that boot.
+def datagenEnabled = project.findProperty('enable_datagen')?.toBoolean()
+if (datagenEnabled) {
+	fabricApi {
+		configureDataGeneration {
+			modId = project.mod_id
+			client = project.datagen_client.toBoolean()
+			createSourceSet = true
+		}
+	}
+}
+
+// --- Access widener -----------------------------------------------------------------------------
+// Wired on presence rather than a property: the file is the declaration, and a second switch saying
+// "yes, really" could only ever disagree with it.
+def classTweaker = file("src/main/resources/${project.mod_id}.classtweaker")
+if (classTweaker.exists()) {
+	loom {
+		accessWidenerPath = classTweaker
+	}
+}
+
+// --- Shading kalic0re ---------------------------------------------------------------------------
+// Consumers take kalic0re's shared helpers by moving the code in, not by depending on it: a
+// "depends" entry or Loom's include() would force its jar to be present, and include() would also
+// nest it as a second full mod, waking its entrypoint and mixins as a side effect. Relocating means
+// two consumers installed side by side never define the same class name either.
+def kalic0rePackages = project.hasProperty('kalic0re_version')
+		? project.kalic0re_shared_packages.split(',')*.trim().findAll { it }
+		: []
+if (!kalic0rePackages.isEmpty()) {
+	apply plugin: 'com.gradleup.shadow'
+
+	configurations {
+		kalic0re
+		shade
+		implementation.extendsFrom shade
+	}
+
+	// shadowJar's own include/exclude patterns match the pre-relocation path, so they cannot express
+	// "keep only these helpers". Filtering up front is also stricter: this jar carries only the
+	// packages named in kalic0re_shared_packages, and importing any other one fails to compile
+	// rather than silently bundling it — which is what keeps kalic0re's own feature packages
+	// (label, mixin, rule, books, frame, armorstands) from ever leaking into a consumer.
+	tasks.register('kalic0reSharedJar', Jar) {
+		archiveBaseName = 'kalic0re-shared'
+		destinationDirectory = layout.buildDirectory.dir('shade')
+		from({ configurations.kalic0re.collect { zipTree(it) } }) {
+			kalic0rePackages.each { include "club/rainbowkitty/kalic0re/common/${it}/**" }
+		}
+	}
+
+	// The shaded jar is the one installed, so it takes the plain name; otherwise both tasks write
+	// the same path and whichever runs last silently wins.
+	tasks.named('jar') {
+		archiveClassifier.set('unshaded')
+	}
+
+	tasks.named('shadowJar') {
+		archiveClassifier.set('')
+		configurations = [project.configurations.shade]
+		relocate 'club.rainbowkitty.kalic0re.common', "${project.maven_group}.shaded.kalic0re"
+	}
+
+	tasks.named('assemble') {
+		dependsOn tasks.named('shadowJar')
+	}
+}
+
 dependencies {
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-	implementation "eu.pb4:polymer-bundled:${project.polymer_version}"
-	// Non-transitive: molang-compiler is shaded into the bil jar, and polymer/fabric-api are already direct deps above.
-	// The published bil pom lists all those as runtime deps, which would otherwise force pointless downloads.
-	implementation(include("de.tomalbrc:blockbench-import-library:${project.bil_version}")) { transitive = false }
-	// bil's /bil command calls me.lucko.fabric.api.permissions.v0.Permissions; upstream JiJ'd it, but a
-	// locally-built bil jar loses that entry because shadowJar overwrites loom's include output. Ship it ourselves.
-	implementation include("me.lucko:fabric-permissions-api:${project.fabric_permissions_api_version}")
+	add(apiScope, "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}")
+
+	if (project.hasProperty('polymer_version')) {
+		add(apiScope, "eu.pb4:polymer-bundled:${project.polymer_version}")
+	}
+
+	if (project.hasProperty('bil_version')) {
+		// Non-transitive: molang-compiler is shaded into the bil jar, and polymer/fabric-api are
+		// already direct deps above. The published bil pom lists all of those as runtime deps, which
+		// would otherwise force pointless downloads.
+		implementation(include("de.tomalbrc:blockbench-import-library:${project.bil_version}")) { transitive = false }
+		// bil's /bil command calls me.lucko.fabric.api.permissions.v0.Permissions; upstream JiJ'd it,
+		// but a locally-built bil jar loses that entry because shadowJar overwrites loom's include
+		// output. Ship it ourselves.
+		implementation include("me.lucko:fabric-permissions-api:${project.fabric_permissions_api_version}")
+	}
+
+	if (!kalic0rePackages.isEmpty()) {
+		// Non-transitive guard: these helpers are relocated in, not depended on, so the mod installs
+		// standalone. kalic0re declares fabric-api/Polymer compileOnly, so there is nothing to inherit
+		// anyway — this keeps that true if it ever stops being.
+		kalic0re("club.rainbowkitty.kalic0re:kalic0re:${project.kalic0re_version}") { transitive = false }
+		shade files(tasks.named('kalic0reSharedJar'))
+	}
 }
 
-// runServer/stopServer lifecycle, sane-defaults seeding of run/, and the optional Quilt run — all
-// generic, all driven only by gradle.properties. Delete this line and gradle/devserver.gradle to
-// fall back to Loom's bare dev server.
-apply from: 'gradle/devserver.gradle'
+// --- Dev server ---------------------------------------------------------------------------------
+if (project.hasProperty('dev_server_port')) {
+	// runServer/stopServer lifecycle, sane-defaults seeding of run/ and run/client, and the optional
+	// Quilt run — all generic, all driven only by gradle.properties.
+	apply from: 'gradle/devserver.gradle'
+} else {
+	// No seeded dev world, but still the two things a bare Loom dev run gets wrong on its own.
+	loom {
+		runs {
+			// The dev client must not share run/ with the server: Polymer regenerates
+			// polymer/resource_pack.zip on whichever side starts last, and the client builds it empty,
+			// so the server ends up serving a pack whose hash no longer matches the one it advertised
+			// and every join fails with FAILED_DOWNLOAD.
+			client {
+				runDir 'run/client'
+			}
+		}
+	}
 
+	tasks.register('stopServer') {
+		group = 'fabric'
+		description = 'Stops the dev server started by runServer, if one is running.'
+
+		// Loom writes one launch config per project, so its path identifies this checkout's dev server
+		// and nothing else. Matching on the main class or on 'runServer' would also match a sibling
+		// mod's server in the same workspace, and matching on the port would miss a reconfigured one.
+		def marker = file('.gradle/loom-cache/launch.cfg').absolutePath
+
+		doLast {
+			def running = []
+			ProcessHandle.allProcesses().forEach { handle ->
+				if (handle.info().commandLine().orElse('').contains(marker)) {
+					running << handle
+				}
+			}
+			if (running.isEmpty()) {
+				logger.lifecycle('No dev server running.')
+				return
+			}
+			// Asked to stop rather than killed: the server traps the signal and saves the world on its
+			// way out, which a dev world that has been built in still deserves.
+			running.each { it.destroy() }
+			running.each { handle ->
+				try {
+					handle.onExit().get(30, java.util.concurrent.TimeUnit.SECONDS)
+					logger.lifecycle("Stopped dev server (pid ${handle.pid()}).")
+				} catch (java.util.concurrent.TimeoutException ignored) {
+					throw new GradleException(
+							"Dev server (pid ${handle.pid()}) ignored the stop request for 30s.")
+				}
+			}
+		}
+	}
+}
+
+// --- Resources ----------------------------------------------------------------------------------
 processResources {
+	// Datagen leaves a hash cache beside its output; Loom excludes it from `jar` only, which
+	// shadowJar — the jar actually shipped — does not inherit, so drop it a step earlier.
+	exclude '.cache/**'
+
 	// Collect only simple, serializable project properties (e.g. values from gradle.properties)
 	// to avoid fingerprinting errors from complex Gradle objects.
 	def resourceProps = [:]
@@ -84,7 +229,7 @@ processResources {
 	// Provide both flat props and a nested 'project' map for ${project.*} references
 	def expandMap = resourceProps + [project: resourceProps]
 
-	filesMatching(["fabric.mod.json", "*.mixins.json"]) {
+	filesMatching(["fabric.mod.json", "*.mixins.json", "resourcepacks/*/pack.mcmeta"]) {
 		expand(expandMap)
 	}
 }
@@ -112,13 +257,13 @@ tasks.named('processResources') {
 	finalizedBy tasks.named('validateFabricModJson')
 }
 
-// Thin, discoverable alias: Loom's task name for datagen doesn't say what it produces, and its
-// output isn't wired into `build` since a fresh clone needs it generated at least once by hand.
-tasks.register('generateAssets') {
-	group = 'fabric'
-	description = 'Regenerates this mod\'s datagen output (models, recipes, tags, lang, etc). ' +
-			'Run after cloning, or whenever a datagen provider or its inputs change.'
-	dependsOn tasks.named('runDatagen')
+// A permissive licence asks for the notice to travel with every copy, and a jar handed to someone
+// is a copy. Naming the licence in fabric.mod.json is not that — it states the terms without
+// carrying them. Shading mods put it in `jar`, which shadowJar then absorbs along with the rest.
+if (file('LICENSE').exists()) {
+	tasks.named('jar') {
+		from(file('LICENSE'))
+	}
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -126,16 +271,29 @@ tasks.withType(JavaCompile).configureEach {
 	options.release = project.java_version.toInteger()
 }
 
+// Let the Java plugin create a sourcesJar task so Loom can wire it correctly.
 java {
 	withSourcesJar()
 }
 
-// Ordering only, not a real dependency: generateAssets is deliberately not wired into build (see
-// above), but sourcesJar bundles src/main/generated as part of sourceSets.main.allSource, so
-// Gradle's task-graph validation requires this declared whenever both tasks are requested in the
-// same invocation (e.g. `./gradlew generateAssets build`).
-tasks.named('sourcesJar') {
-	mustRunAfter tasks.named('runDatagen')
+// --- Datagen tasks ------------------------------------------------------------------------------
+if (datagenEnabled) {
+	// Thin, discoverable alias: Loom's task name for datagen doesn't say what it produces, and its
+	// output isn't wired into `build` since a fresh clone needs it generated at least once by hand.
+	tasks.register('generateAssets') {
+		group = 'fabric'
+		description = 'Regenerates this mod\'s datagen output (models, recipes, tags, lang, etc). ' +
+				'Run after cloning, or whenever a datagen provider or its inputs change.'
+		dependsOn tasks.named('runDatagen')
+	}
+
+	// Ordering only, not a real dependency: generateAssets is deliberately not wired into build (see
+	// above), but sourcesJar bundles src/main/generated as part of sourceSets.main.allSource, so
+	// Gradle's task-graph validation requires this declared whenever both tasks are requested in the
+	// same invocation (e.g. `./gradlew generateAssets build`).
+	tasks.named('sourcesJar') {
+		mustRunAfter tasks.named('runDatagen')
+	}
 }
 
 publishing {
@@ -145,8 +303,16 @@ publishing {
 		}
 	}
 
+	// select the repositories you want to publish to
 	repositories {
 		// uncomment to publish to the local maven
 		// mavenLocal()
 	}
+}
+
+// Anything that genuinely cannot be made generic: per-mod dependencies, extra run arguments, checks
+// over this mod's own content. Applied last so it can reconfigure anything registered above.
+// Optional — a mod with nothing special has no build.mod.gradle.
+if (file('build.mod.gradle').exists()) {
+	apply from: 'build.mod.gradle'
 }

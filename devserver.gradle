@@ -195,7 +195,9 @@ def seedDevServer = { File runDir ->
 	if (!pack.exists()) {
 		new File(pack, 'data/dev_defaults/function').mkdirs()
 		new File(pack, 'data/minecraft/tags/function').mkdirs()
-		def packFormat = project.dev_datapack_pack_format
+		// A mod that already ships its own datapacks has one pack_format property for all of them;
+		// reuse it rather than making it keep a second copy in step.
+		def packFormat = project.findProperty('dev_datapack_pack_format') ?: project.datapack_pack_format
 		new File(pack, 'pack.mcmeta').text =
 				'{"pack":{"description":"dev-server defaults","min_format":[' + packFormat +
 						',1],"max_format":' + packFormat + '}}\n'
