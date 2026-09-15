@@ -9,6 +9,25 @@ template_url="ssh://git@github.com/RainbowKittyClub/mod-template_fabric"
 
 sed_escape() { printf '%s' "$1" | sed -e 's/[&#\]/\\&/g'; }
 
+# A fresh mod otherwise inherits the template's dev_server_port/dev_rcon_port verbatim, colliding
+# with any other mod scaffolded from the same template the moment both run a dev server (see
+# CLAUDE.md, "Starting a new mod" > "Watch for"). Both keys are real TCP ports on the same host, so
+# this tracks one high-water mark across every sibling's dev_server_port AND dev_rcon_port under
+# rkc/mods/, rather than two independent counters that could cross-collide, and hands out the next
+# two free ports above it.
+highest_claimed_port() {
+    local highest="" f v
+    for f in ../*/gradle.properties; do
+        [[ -f $f ]] || continue
+        for v in $(grep -E '^dev_(server|rcon)_port=' "$f" 2>/dev/null | cut -d= -f2); do
+            if [[ -z $highest || $v -gt $highest ]]; then
+                highest=$v
+            fi
+        done
+    done
+    printf '%s' "$highest"
+}
+
 prompt() {
     local var_name=$1 text=$2 default=${3-} pattern=${4-} value
     while true; do
@@ -76,6 +95,18 @@ ln -s gradle/build.gradle build.gradle
 ln -s gradle/settings.gradle settings.gradle
 cp gradle/gradle.properties.template gradle.properties
 
+# Pick non-overlapping dev-server ports before anything reads the template's defaults back out of
+# gradle.properties. Only kicks in above the template's own baseline, so a lone mod keeps the
+# familiar 25580/25575.
+highest_port=$(highest_claimed_port)
+if [[ -n $highest_port ]]; then
+    dev_server_port=$((highest_port + 2))
+    dev_rcon_port=$((highest_port + 4))
+else
+    dev_server_port=$(grep '^dev_server_port=' gradle.properties | cut -d= -f2)
+    dev_rcon_port=$(grep '^dev_rcon_port=' gradle.properties | cut -d= -f2)
+fi
+
 git config core.hooksPath ../../../scripts/githooks
 
 # Fill in gradle.properties with the answers above.
@@ -89,6 +120,8 @@ sed -i \
     -e "s#^maven_group = .*#maven_group = $(sed_escape "$maven_group")#" \
     -e "s#^mod_id = .*#mod_id = $(sed_escape "$mod_id")#" \
     -e "s#^entrypoint = .*#entrypoint = $(sed_escape "$maven_group.$entry_class")#" \
+    -e "s#^dev_server_port=.*#dev_server_port=$dev_server_port#" \
+    -e "s#^dev_rcon_port=.*#dev_rcon_port=$dev_rcon_port#" \
     gradle.properties
 
 # Move the CHANGEME-named source into place under the real package/class names.
