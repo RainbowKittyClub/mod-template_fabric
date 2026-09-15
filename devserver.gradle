@@ -273,6 +273,10 @@ def seedDevClient = { File runDir ->
 			skipMultiplayerWarning: 'true',
 			joinedFirstServer     : 'true',
 			soundCategory_music   : '0.0',
+			// Swapped from vanilla (sneak=left.shift, sprint=left.control): left.control is a more
+			// natural sneak-and-hold key for a dev client, since default sprint is a double-tap/toggle.
+			'key_key.sneak'       : 'key.keyboard.left.control',
+			'key_key.sprint'      : 'key.keyboard.left.shift',
 	]
 	def optionsFile = new File(runDir, 'options.txt')
 	def named = optionsFile.exists()
