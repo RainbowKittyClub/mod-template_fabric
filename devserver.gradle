@@ -269,6 +269,9 @@ def seedDevClient = { File runDir ->
 	runDir.mkdirs()
 
 	def defaults = [
+			// Without this the file reads as schema 0, so Minecraft replays every options datafix
+			// over it — OptionsKeyLwjgl3Fix then parseInts the key_ values and Options.load bails.
+			version               : project.dev_client_options_version,
 			onboardAccessibility  : 'false',
 			skipMultiplayerWarning: 'true',
 			joinedFirstServer     : 'true',

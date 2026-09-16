@@ -56,6 +56,9 @@ dev_rcon_password=dev
 # A mod that ships its own datapacks can drop this and set datapack_pack_format instead — one
 # property for every pack in the project.
 dev_datapack_pack_format=107
+# Data version stamped into the seeded options.txt. Without it the client treats the file as schema 0,
+# datafixing its key_ entries throws, and no seeded option applies. 4903 = MC 26.2; bump alongside.
+dev_client_options_version=4903
 
 # Quilt Loader, for the optional `runQuiltServer` task only (see gradle/devserver.gradle / README).
 # Quilt has no stable 26.2 release yet, so this tracks the newest actively-updated beta. The rest are
