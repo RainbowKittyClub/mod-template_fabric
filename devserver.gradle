@@ -95,12 +95,22 @@ tasks.register('stopServer') {
 // Knot doesn't; there's also no quilted-fabric-loader here to pick up Fabric mods. So this currently
 // smoke-tests vanilla-under-Quilt, not the mod. Fixing it needs a classPathGroups equivalent for
 // Knot plus a QFL build — and Quilt has no stable 26.2 release yet. See README "Quilt dev server".
+// The name the dev client joins under. Present, it does both halves of one fact at once: the
+// client skips the offline-mode name prompt, and that same name is opped in the seeded ops list.
+// Splitting those across two files is what left a dev client unable to set a gamerule on its own
+// dev server.
+def devClientUsername = project.findProperty('dev_client_username')
+
 loom {
 	runs {
 		// Default client run shares run/ with runServer; both regenerate polymer/resource_pack.zip and
 		// whichever finishes last wins, desyncing it from the hash the server already advertised.
 		client {
 			runDir 'run/client'
+
+			if (devClientUsername) {
+				programArgs '--username', devClientUsername
+			}
 		}
 		quiltServer {
 			server()
@@ -136,7 +146,7 @@ tasks.register('stopQuiltServer') {
 // every experiment datapack on, rcon open, no watchdog, command blocks on, no mob spawning / block
 // drops / time advance, and an ops list. Everything is merge-if-absent — a hand edit always wins,
 // and `rm -rf run/` resets to these.
-def devServerOps = ['Kalic0', 'LuckySkips']
+def devServerOps = ['Kalic0', 'LuckySkips'] + (devClientUsername ? [devClientUsername] : [])
 
 def seedDevServer = { File runDir ->
 	runDir.mkdirs()
@@ -177,10 +187,17 @@ def seedDevServer = { File runDir ->
 	}
 
 	// Op list. Offline-mode UUIDs (online-mode=false above), matching UUIDUtil.createOfflinePlayerUUID.
+	// Merged per name, like server.properties above rather than the whole file at once: a mod that
+	// starts naming its dev client gets it opped on the next run, not on the next `rm -rf run/`.
 	def ops = new File(runDir, 'ops.json')
-	if (!ops.exists()) {
+	def listed = ops.exists() && !ops.text.trim().isEmpty()
+			? new groovy.json.JsonSlurper().parseText(ops.text)
+			: []
+	def opped = listed.collect { it.name } as Set
+	def adding = devServerOps.findAll { !opped.contains(it) }
+	if (!adding.isEmpty()) {
 		ops.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(
-				devServerOps.collect { name -> [
+				listed + adding.collect { name -> [
 						uuid               : UUID.nameUUIDFromBytes("OfflinePlayer:${name}".getBytes('UTF-8')).toString(),
 						name               : name,
 						level              : 4,
