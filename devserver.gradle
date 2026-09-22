@@ -45,18 +45,24 @@ def quiltRunDir = 'run-quilt'
 // How long stopServer waits for a dev server to shut down before giving up.
 def stopRequestTimeoutSeconds = 30
 
-// Loom writes one launch config per project, so its path identifies this checkout's dev servers and
-// nothing else. Matching on the main class or on 'runServer' would also match a sibling mod's server
-// in the same workspace, and matching on the port would miss a reconfigured one. The extra -D marker
-// on the Quilt run (set below) is what tells the two apart; it must stay a valid -D system property.
+// Loom writes one launch config per project, so its path narrows a process to this checkout.
+// Matching on the main class or on 'runServer' would also match a sibling mod's server in the same
+// workspace, and matching on the port would miss a reconfigured one. The extra -D marker on the
+// Quilt run (set below) is what tells the two apart; it must stay a valid -D system property.
 def loomLaunchMarker = file('.gradle/loom-cache/launch.cfg').absolutePath
+
+// runClient passes the same launch config as runServer, so the path alone also matches this
+// checkout's dev client — which stopServer would then ask to exit, taking the client down with the
+// server and reporting its pid as the one that ignored the request. Loom sets the environment on
+// every run, so requiring it is what separates the two.
+def serverEnvMarker = '-Dfabric.dli.env=server'
 def quiltServerMarker = "-D${project.mod_id}.devserver=quilt".toString()
 
 def stopDevServer = { String label, Closure<Boolean> matches ->
 	def running = []
 	ProcessHandle.allProcesses().forEach { handle ->
 		def cmd = handle.info().commandLine().orElse('')
-		if (cmd.contains(loomLaunchMarker) && matches(cmd)) {
+		if (cmd.contains(loomLaunchMarker) && cmd.contains(serverEnvMarker) && matches(cmd)) {
 			running << handle
 		}
 	}
