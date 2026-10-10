@@ -206,6 +206,33 @@ if (project.hasProperty('dev_server_port')) {
 }
 
 // --- Resources ----------------------------------------------------------------------------------
+// A Claude Code session run from inside src/ leaves a `.claude/` where it sat (an empty `.cc-writes/`
+// inside). Nothing under src/ is a legitimate home for one — project state lives at the repo root —
+// and under resources/ it would ride processResources into the jar and any datapack zip. Sweep every
+// source set first, and the processed output too, since a Copy task never removes what an earlier
+// run copied; exclude the pattern as well for one that appears mid-build.
+def cleanStrayClaudeDirs = tasks.register('cleanStrayClaudeDirs') {
+	group = 'build'
+	description = 'Deletes .claude/ directories left under src/ by Claude Code sessions run inside it.'
+	def roots = [layout.projectDirectory.dir('src').asFile, layout.buildDirectory.dir('resources').get().asFile]
+	def projectPath = layout.projectDirectory.asFile.toPath()
+	doLast {
+		def strays = []
+		roots.findAll { it.directory }.each { root ->
+			root.traverse(type: groovy.io.FileType.DIRECTORIES) { if (it.name == '.claude') strays << it }
+		}
+		strays.each {
+			logger.lifecycle("Removing stray ${projectPath.relativize(it.toPath())}/ left by a Claude Code session")
+			it.deleteDir()
+		}
+	}
+}
+
+tasks.withType(ProcessResources).configureEach {
+	dependsOn cleanStrayClaudeDirs
+	exclude '**/.claude/**'
+}
+
 processResources {
 	// Datagen leaves a hash cache beside its output; Loom excludes it from `jar` only, which
 	// shadowJar — the jar actually shipped — does not inherit, so drop it a step earlier.
