@@ -175,6 +175,8 @@ def seedDevServer = { File runDir ->
 			'pause-when-empty-seconds': '0',
 			'max-tick-time'           : '-1',
 			'spawn-protection'        : '0',
+			// Off by default in vanilla; a dev world is where command-block logic gets tried.
+			'enable-command-block'    : 'true',
 			'sync-chunk-writes'       : 'false',
 			'enable-rcon'             : 'true',
 			'rcon.port'               : project.dev_rcon_port,
