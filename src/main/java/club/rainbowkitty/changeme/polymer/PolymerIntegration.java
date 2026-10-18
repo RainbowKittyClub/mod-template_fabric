@@ -19,7 +19,7 @@ import club.rainbowkitty.changeme.content.ExampleBlock;
  * loaded, so no Polymer class is referenced on a Polymer-less server. polymer-resource-pack and
  * polymer-blocks ride along inside polymer-bundled; split the {@code isModLoaded} guard if a mod
  * ever depends on them separately.
- **/
+ */
 public final class PolymerIntegration {
     private PolymerIntegration() {}
 

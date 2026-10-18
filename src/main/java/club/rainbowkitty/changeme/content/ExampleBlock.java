@@ -23,7 +23,7 @@ import club.rainbowkitty.changeme.CHANGEME;
  * <p>Delete this package, {@code polymer.PolymerExampleBlock}, the branch in the mod initializer,
  * and the {@code example_block} assets/data once you have your own content — or rename and build
  * on it.
- **/
+ */
 public class ExampleBlock extends Block {
     /** {@code changeme:example_block}. */
     public static final Identifier ID = CHANGEME.id("example_block");

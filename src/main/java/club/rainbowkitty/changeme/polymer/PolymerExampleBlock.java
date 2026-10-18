@@ -18,7 +18,7 @@ import club.rainbowkitty.changeme.content.ExampleBlock;
  * pool state that the generated resource pack retextures to {@code block/example_block} with the
  * same full-cube collision. {@link PolymerClientDecoded} tells a Polymer client to keep the real
  * block rather than expect a virtual one.
- **/
+ */
 public class PolymerExampleBlock extends ExampleBlock
         implements PolymerTexturedBlock, PolymerClientDecoded {
     private final BlockState clientState;

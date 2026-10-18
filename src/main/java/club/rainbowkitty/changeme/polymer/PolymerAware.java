@@ -19,7 +19,7 @@ import club.rainbowkitty.changeme.CHANGEME;
  * {@code >= 0} for connections whose client also loaded this mod. {@link PolymerExampleBlock} uses
  * that to send real content vs a substitute. The packet carries nothing and is never sent — the id
  * exists only as a capability marker.
- **/
+ */
 public final class PolymerAware {
     /** Handshake capability id: {@code changeme:handshake}. */
     public static final CustomPacketPayload.Type<Payload> HANDSHAKE =
