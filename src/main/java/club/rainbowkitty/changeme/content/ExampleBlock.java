@@ -20,8 +20,9 @@ import club.rainbowkitty.changeme.CHANGEME;
  * ({@code polymer.PolymerExampleBlock}) is a subclass used only when polymer-core is present, so
  * nothing here drags a Polymer class onto a Polymer-less server.
  *
- * <p>Delete this package, {@code polymer.PolymerExampleBlock}, the branch in {@code CHANGEME}, and
- * the {@code example_block} assets/data once you have your own content — or rename and build on it.
+ * <p>Delete this package, {@code polymer.PolymerExampleBlock}, the branch in the mod initializer,
+ * and the {@code example_block} assets/data once you have your own content — or rename and build
+ * on it.
  **/
 public class ExampleBlock extends Block {
     /** {@code changeme:example_block}. */

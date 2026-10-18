@@ -15,8 +15,8 @@ import club.rainbowkitty.changeme.CHANGEME;
 import club.rainbowkitty.changeme.content.ExampleBlock;
 
 /**
- * Everything that touches Polymer. Called from {@code CHANGEME.onInitialize} only when polymer-core
- * is loaded, so no Polymer class is referenced on a Polymer-less server. polymer-resource-pack and
+ * Everything that touches Polymer. The mod initializer calls this only when polymer-core is
+ * loaded, so no Polymer class is referenced on a Polymer-less server. polymer-resource-pack and
  * polymer-blocks ride along inside polymer-bundled; split the {@code isModLoaded} guard if a mod
  * ever depends on them separately.
  **/
@@ -41,11 +41,11 @@ public final class PolymerIntegration {
         final BlockState fallback = clientState;
         Block block = ExampleBlock.registerBlock(
                 props -> new PolymerExampleBlock(props, fallback));
-        // Vanilla clients see a stone item rather than an unknown changeme:example_block id.
+        // Vanilla clients see a stone item rather than an item id they don't know.
         ExampleBlock.registerItem(
                 new PolymerBlockItem(block, ExampleBlock.itemSettings(), Items.STONE, true));
 
-        // Ship assets/changeme/ into Polymer's generated pack. Deliberately NOT markAsRequired():
+        // Ship this mod's assets into Polymer's generated pack. Deliberately NOT markAsRequired():
         // clients that decline just see the fallback block, and clients running this mod never need
         // the pack. Whether the pack is pushed or required is the server's autohost config.
         PolymerResourcePackUtils.addModAssets(CHANGEME.MOD_ID);
