@@ -98,6 +98,8 @@ if (!kalic0rePackages.isEmpty()) {
 	tasks.register('kalic0reSharedJar', Jar) {
 		archiveBaseName = 'kalic0re-shared'
 		destinationDirectory = layout.buildDirectory.dir('shade')
+		// A changed package list alone left this task up to date, so it is a declared input.
+		inputs.property('kalic0rePackages', kalic0rePackages)
 		from({ configurations.kalic0re.collect { zipTree(it) } }) {
 			kalic0rePackages.each { include "club/rainbowkitty/kalic0re/common/${it}/**" }
 		}
