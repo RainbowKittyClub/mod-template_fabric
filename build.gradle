@@ -23,11 +23,39 @@ version = providers.gradleProperty('stonecutter_versions').isPresent()
 		? "${project.mod_version}+${project.minecraft_version}" : project.mod_version
 group = project.maven_group
 
+// GitHub Packages wants a token even to read a public package. CI passes GITHUB_ACTOR/GITHUB_TOKEN;
+// a local build reads gpr.user/gpr.key from ~/.gradle/gradle.properties (read:packages, plus
+// write:packages to publish). Without them a lookup there fails with 401.
+def githubUser = System.getenv('GITHUB_ACTOR') ?: project.findProperty('gpr.user')
+def githubToken = System.getenv('GITHUB_TOKEN') ?: project.findProperty('gpr.key')
+def githubPackages = { RepositoryHandler repos, String repoName, String repoSlug,
+		Action<RepositoryContentDescriptor> only ->
+	repos.maven {
+		name = repoName
+		url = uri("https://maven.pkg.github.com/${repoSlug}")
+		if (githubUser && githubToken) {
+			credentials {
+				username = githubUser
+				password = githubToken
+			}
+		}
+		if (only) {
+			content(only)
+		}
+	}
+}
+
 repositories {
-	// kalic0re is published nowhere public, and bil releases go to CurseForge (not a maven) while
-	// maven.tomalbrc.de stops at 1.1.13+1.21 — no 26.x coordinate exists to resolve. Both come from
-	// a local build; see CLAUDE.md.
+	// bil releases go to CurseForge (not a maven) while maven.tomalbrc.de stops at 1.1.13+1.21, so
+	// it comes from a local build. A local kalic0re or Polymer fork build wins over GitHub too.
 	mavenLocal()
+	// The RKC Polymer fork, as <upstream>-rkc.<n>+<minecraft>; stock versions still come from Nucleoid.
+	githubPackages(repositories, 'PolymerFork', 'RainbowKittyClub/polymer') {
+		it.includeVersionByRegex('eu\\.pb4', '.*', '.*-rkc\\..*')
+	}
+	githubPackages(repositories, 'Kalic0re', 'RainbowKittyClub/Kalic0re') {
+		it.includeGroup('club.rainbowkitty.kalic0re')
+	}
 	maven {
 		name = 'Nucleoid'
 		url = 'https://maven.nucleoid.xyz'
@@ -130,6 +158,17 @@ dependencies {
 
 	if (project.hasProperty('polymer_version')) {
 		add(apiScope, "eu.pb4:polymer-bundled:${project.polymer_version}")
+	}
+	// Gradle ranks a fork's 0.17.5-rkc.1 below a stock 0.17.5, so a transitive stock Polymer would
+	// win the conflict and the dev server would quietly run stock. One Polymer for the whole build.
+	if (project.hasProperty('polymer_version')) {
+		configurations.configureEach {
+			resolutionStrategy.eachDependency { details ->
+				if (details.requested.group == 'eu.pb4' && details.requested.name.startsWith('polymer-')) {
+					details.useVersion(project.polymer_version)
+				}
+			}
+		}
 	}
 
 	if (project.hasProperty('bil_version')) {
@@ -337,12 +376,14 @@ publishing {
 			from components.java
 		}
 	}
+}
 
-	// select the repositories you want to publish to
-	repositories {
-		// uncomment to publish to the local maven
-		// mavenLocal()
-	}
+// The mod's own GitHub Packages, where a v<mod_version> tag publishes from CI
+// (.github/workflows/publish-maven.yml). Locally publishToMavenLocal needs none of this.
+def websiteSlug = project.mod_website =~ /github\.com\/([^\/]+\/[^\/]+?)(?:\.git)?\/?$/
+def publishSlug = System.getenv('GITHUB_REPOSITORY') ?: (websiteSlug.find() ? websiteSlug.group(1) : null)
+if (publishSlug) {
+	githubPackages(publishing.repositories, 'GitHubPackages', publishSlug, null)
 }
 
 // Anything that genuinely cannot be made generic: per-mod dependencies, extra run arguments, checks
