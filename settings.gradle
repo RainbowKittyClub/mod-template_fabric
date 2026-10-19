@@ -21,9 +21,8 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        def stonecutterVersion = providers.gradleProperty('stonecutter_version').orNull
-        if (stonecutterVersion != null) {
-            classpath "dev.kikugie:stonecutter:${stonecutterVersion}"
+        if (providers.gradleProperty('stonecutter_versions').isPresent()) {
+            classpath "dev.kikugie:stonecutter:${providers.gradleProperty('stonecutter_version').get()}"
         }
     }
 }
