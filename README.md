@@ -120,17 +120,19 @@ is merge-if-absent — a hand edit sticks; `rm -rf run/` resets to these:
 - `run/eula.txt` → `eula=true`.
 - `run/server.properties` — `online-mode=false`, `gamemode=creative`, a superflat `minecraft:flat`
   world, all three 26.2 experiment datapacks in `initial-enabled-packs`, `pause-when-empty-seconds=0`,
-  `max-tick-time=-1` (no watchdog), `spawn-protection=0`, rcon open. Ports, rcon password and the
-  datapack pack format are the `dev_*` keys in `gradle.properties`.
+  `max-tick-time=-1` (no watchdog), `spawn-protection=0`, rcon open. The rcon password and the
+  datapack pack format are the `dev_*` keys in `gradle.properties`; the ports are picked per run.
 - `run/ops.json` — `Kalic0` and `LuckySkips` at level 4, offline-mode UUIDs (edit the `devServerOps`
   list in `gradle/devserver.gradle` to change it).
 - `run/world/datapacks/zz_dev_defaults/` — a one-shot `#load` function (guarded by a storage flag, so
   the rules stay editable) that forces `command_blocks_work` on and turns off `advance_time`,
   `block_drops` and all `spawn_*` rules.
 
-`dev_server_port`/`dev_rcon_port` carry template defaults — give a mod that runs its dev server next
-to another its own values, outside 25565–25567 (Docker publishes that range). World settings only bind
-at world creation, so change them *before* the first `runServer` or delete `run/world/`.
+Ports are the one thing not seeded: every `runServer` takes the first two free ports in
+`dev_server_ports` (template default `25600-25800`; server, then rcon) and writes them into
+`run/server.properties`, so any number of mods and worktrees can run side by side. The dev client's
+server list follows the last port. World settings only bind at world creation, so change them
+*before* the first `runServer` or delete `run/world/`.
 
 `runClient` uses its own `run/client`, not `run/` — the client and `runServer` both regenerate
 `polymer/resource_pack.zip` on start, and sharing a dir means whichever finishes last silently
