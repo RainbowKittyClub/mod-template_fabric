@@ -83,7 +83,7 @@ All observed on 2026-10-19:
 - Stonecutter warns once about Groovy build scripts; `dev.kikugie.stonecutter.hard_mode=true`
   acknowledges it.
 
-## S2 — Opt-in and shared paths — **in progress**
+## S2 — Opt-in and shared paths — **done**
 
 **Build.**
 
@@ -104,6 +104,16 @@ All observed on 2026-10-19:
 **Done when.** The spike checks pass again on the committed branch. Then one real single-version
 mod (better-barriers) builds byte-identical jars before and after its submodule points at this
 branch.
+
+### As built
+
+Commit `537eaec`, checked on 2026-10-19:
+- The spike rebuilt `+26.2` and `+26.3` jars from the committed branch.
+- Two scratch copies of better-barriers (shaded kalic0re, dev server) were built:
+  - one on `gradle` `4dcbbaf`, its submodule's commit;
+  - one on this branch.
+- Their `betterbarriers-0.1.1.jar` files match entry for entry (68 entries, none differing) and keep
+  the unsuffixed name.
 
 ## S3 — `devserver.sh` per version — **planned**
 
