@@ -252,7 +252,7 @@ publication defaulted to the node's name (`26.2`).
 - polymer-diagonal-walls shades the same 10 command/text classes from each version's kalic0re
   (S7).
 
-## S7 — First real mod: polymer-diagonal-walls — **in progress**
+## S7 — First real mod: polymer-diagonal-walls — **done**
 
 **Build.**
 - Opt it in with 26.2 and 26.3, Polymer `0.17.5+26.2` and `0.18.x+26.3`.
@@ -291,7 +291,8 @@ Observed on 2026-10-19:
 - `columns-check.js` can't run on 26.3: ViaFabric 0.4.22 has no 26.3 server module for its 26.1
   bots.
 
-Waiting on: the user's 26.3 dev client seeing arms and being blocked by the columns.
+The user confirmed on 2026-10-19, in a 26.3 client joined directly to the 26.3 dev server, that
+the arms show and the columns block.
 
 ## S8 — Datagen mods — **planned**
 
