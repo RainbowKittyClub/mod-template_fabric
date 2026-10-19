@@ -192,11 +192,12 @@ dependencies {
 }
 
 // --- Dev server ---------------------------------------------------------------------------------
+// Loom keeps a Stonecutter version node's cache under the root's, by project name. Both stopServer
+// variants below find this checkout's dev server by it.
+ext.loomLaunchConfig = (project == rootProject
+		? file('.gradle/loom-cache/launch.cfg')
+		: rootProject.file(".gradle/loom-cache/projects/${project.name}/launch.cfg")).absolutePath
 if (project.hasProperty('dev_server_port')) {
-	// Loom keeps a Stonecutter version node's cache under the root's, by project name.
-	ext.loomLaunchConfig = (project == rootProject
-			? file('.gradle/loom-cache/launch.cfg')
-			: rootProject.file(".gradle/loom-cache/projects/${project.name}/launch.cfg")).absolutePath
 	// runServer/stopServer lifecycle, sane-defaults seeding of run/ and run/client, and the optional
 	// Quilt run — all generic, all driven only by gradle.properties.
 	apply from: rootProject.file('gradle/devserver.gradle')
