@@ -49,7 +49,7 @@ def stopRequestTimeoutSeconds = 30
 // Matching on the main class or on 'runServer' would also match a sibling mod's server in the same
 // workspace, and matching on the port would miss a reconfigured one. The extra -D marker on the
 // Quilt run (set below) is what tells the two apart; it must stay a valid -D system property.
-def loomLaunchMarker = file('.gradle/loom-cache/launch.cfg').absolutePath
+def loomLaunchMarker = project.loomLaunchConfig
 
 // runClient passes the same launch config as runServer, so the path alone also matches this
 // checkout's dev client — which stopServer would then ask to exit, taking the client down with the

@@ -18,7 +18,9 @@ base {
 	archivesName.set(project.mod_id)
 }
 
-version = project.mod_version
+// Under Stonecutter every version node builds its own jar, so the version names the game version.
+version = providers.gradleProperty('stonecutter_versions').isPresent()
+		? "${project.mod_version}+${project.minecraft_version}" : project.mod_version
 group = project.maven_group
 
 repositories {
@@ -66,7 +68,7 @@ if (datagenEnabled) {
 // --- Access widener -----------------------------------------------------------------------------
 // Wired on presence rather than a property: the file is the declaration, and a second switch saying
 // "yes, really" could only ever disagree with it.
-def classTweaker = file("src/main/resources/${project.mod_id}.classtweaker")
+def classTweaker = rootProject.file("src/main/resources/${project.mod_id}.classtweaker")
 if (classTweaker.exists()) {
 	loom {
 		accessWidenerPath = classTweaker
@@ -152,9 +154,13 @@ dependencies {
 
 // --- Dev server ---------------------------------------------------------------------------------
 if (project.hasProperty('dev_server_port')) {
+	// Loom keeps a Stonecutter version node's cache under the root's, by project name.
+	ext.loomLaunchConfig = (project == rootProject
+			? file('.gradle/loom-cache/launch.cfg')
+			: rootProject.file(".gradle/loom-cache/projects/${project.name}/launch.cfg")).absolutePath
 	// runServer/stopServer lifecycle, sane-defaults seeding of run/ and run/client, and the optional
 	// Quilt run — all generic, all driven only by gradle.properties.
-	apply from: 'gradle/devserver.gradle'
+	apply from: rootProject.file('gradle/devserver.gradle')
 } else {
 	// No seeded dev world, but still the two things a bare Loom dev run gets wrong on its own.
 	loom {
@@ -176,7 +182,7 @@ if (project.hasProperty('dev_server_port')) {
 		// Loom writes one launch config per project, so its path identifies this checkout's dev server
 		// and nothing else. Matching on the main class or on 'runServer' would also match a sibling
 		// mod's server in the same workspace, and matching on the port would miss a reconfigured one.
-		def marker = file('.gradle/loom-cache/launch.cfg').absolutePath
+		def marker = project.loomLaunchConfig
 
 		doLast {
 			def running = []
@@ -214,7 +220,7 @@ if (project.hasProperty('dev_server_port')) {
 def cleanStrayClaudeDirs = tasks.register('cleanStrayClaudeDirs') {
 	group = 'build'
 	description = 'Deletes .claude/ directories left under src/ by Claude Code sessions run inside it.'
-	def roots = [layout.projectDirectory.dir('src').asFile, layout.buildDirectory.dir('resources').get().asFile]
+	def roots = [rootProject.layout.projectDirectory.dir('src').asFile, layout.buildDirectory.dir('resources').get().asFile]
 	def projectPath = layout.projectDirectory.asFile.toPath()
 	doLast {
 		def strays = []
@@ -287,9 +293,9 @@ tasks.named('processResources') {
 // A permissive licence asks for the notice to travel with every copy, and a jar handed to someone
 // is a copy. Naming the licence in fabric.mod.json is not that — it states the terms without
 // carrying them. Shading mods put it in `jar`, which shadowJar then absorbs along with the rest.
-if (file('LICENSE').exists()) {
+if (rootProject.file('LICENSE').exists()) {
 	tasks.named('jar') {
-		from(file('LICENSE'))
+		from(rootProject.file('LICENSE'))
 	}
 }
 
@@ -340,6 +346,6 @@ publishing {
 // Anything that genuinely cannot be made generic: per-mod dependencies, extra run arguments, checks
 // over this mod's own content. Applied last so it can reconfigure anything registered above.
 // Optional — a mod with nothing special has no build.mod.gradle.
-if (file('build.mod.gradle').exists()) {
-	apply from: 'build.mod.gradle'
+if (rootProject.file('build.mod.gradle').exists()) {
+	apply from: rootProject.file('build.mod.gradle')
 }

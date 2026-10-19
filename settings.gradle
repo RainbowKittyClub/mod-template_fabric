@@ -9,7 +9,37 @@ pluginManagement {
     }
 }
 
+// Stonecutter is opt-in like every other feature: present only when gradle.properties names the
+// versions, so a single-version mod resolves nothing extra. A settings plugins {} block can't be
+// conditional, hence the buildscript classpath.
+buildscript {
+    repositories {
+        maven {
+            name = 'KikuGie Releases'
+            url = 'https://maven.kikugie.dev/releases'
+        }
+        gradlePluginPortal()
+    }
+    dependencies {
+        def stonecutterVersion = providers.gradleProperty('stonecutter_version').orNull
+        if (stonecutterVersion != null) {
+            classpath "dev.kikugie:stonecutter:${stonecutterVersion}"
+        }
+    }
+}
+
 // No CHANGEME placeholder here: this file is symlinked in from the shared gradle submodule and
 // stays identical across every mod, so the name has to come from the one file that's actually
 // per-mod — gradle.properties, copied (not symlinked) into place by setup.sh.
 rootProject.name = providers.gradleProperty('mod_id').get()
+
+def stonecutterVersions = providers.gradleProperty('stonecutter_versions').orNull
+if (stonecutterVersions != null) {
+    apply plugin: 'dev.kikugie.stonecutter'
+    stonecutter {
+        create(rootProject) {
+            versions(*stonecutterVersions.split(',')*.trim())
+            vcsVersion = providers.gradleProperty('stonecutter_vcs_version').get()
+        }
+    }
+}
