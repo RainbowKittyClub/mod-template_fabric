@@ -183,9 +183,9 @@ Checked on 2026-10-19:
 S6 and S7.
 - It moves the per-version keys that are present into `versions/<base>/gradle.properties`:
   `minecraft_version`, `fabric_version`, `polymer_version`, `bil_version`, `kalic0re_version`,
-  `datapack_format`, the dev ports and the dev datapack/options versions.
-- It gives each extra version fresh dev ports above every sibling's, and `FILL_IN` for the other
-  moved keys.
+  `datapack_format` and the dev datapack/options versions.
+- It gives each extra version `FILL_IN` for the other moved keys. Dev ports are not per version:
+  every run picks the first free pair in `dev_server_ports`.
 - It adds the `stonecutter_*` keys and `dev.kikugie.stonecutter.hard_mode=true`, plus the
   controller.
 - It appends `.gitignore` patterns only where `git check-ignore` says `build/` and `run/` aren't
