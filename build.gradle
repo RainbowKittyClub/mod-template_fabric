@@ -153,7 +153,12 @@ dependencies {
 }
 
 // --- Dev server ---------------------------------------------------------------------------------
-if (project.hasProperty('dev_server_port')) {
+if (project.hasProperty('dev_server_port') || project.hasProperty('dev_rcon_port')) {
+	// Failing beats dropping the seeded dev server without a word on a submodule bump.
+	throw new GradleException('dev_server_port/dev_rcon_port are gone: every run takes the first free ' +
+			'ports in dev_server_ports. Replace both with dev_server_ports=25600-25800.')
+}
+if (project.hasProperty('dev_server_ports')) {
 	// Loom keeps a Stonecutter version node's cache under the root's, by project name.
 	ext.loomLaunchConfig = (project == rootProject
 			? file('.gradle/loom-cache/launch.cfg')

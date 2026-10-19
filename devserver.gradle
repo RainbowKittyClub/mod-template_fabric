@@ -58,7 +58,10 @@ def loomLaunchMarker = project.loomLaunchConfig
 def serverEnvMarker = '-Dfabric.dli.env=server'
 def quiltServerMarker = "-D${project.mod_id}.devserver=quilt".toString()
 
-def stopDevServer = { String label, Closure<Boolean> matches ->
+def isFabricServer = { String cmd -> !cmd.contains(quiltServerMarker) }
+def isQuiltServer = { String cmd -> cmd.contains(quiltServerMarker) }
+
+def findDevServers = { Closure<Boolean> matches ->
 	def running = []
 	ProcessHandle.allProcesses().forEach { handle ->
 		def cmd = handle.info().commandLine().orElse('')
@@ -66,6 +69,11 @@ def stopDevServer = { String label, Closure<Boolean> matches ->
 			running << handle
 		}
 	}
+	return running
+}
+
+def stopDevServer = { String label, Closure<Boolean> matches ->
+	def running = findDevServers(matches)
 	if (running.isEmpty()) {
 		logger.lifecycle("No ${label} running.")
 		return
@@ -87,7 +95,87 @@ def stopDevServer = { String label, Closure<Boolean> matches ->
 tasks.register('stopServer') {
 	group = 'fabric'
 	description = 'Stops the dev server started by runServer, if one is running.'
-	doLast { stopDevServer('dev server', { cmd -> !cmd.contains(quiltServerMarker) }) }
+	doLast { stopDevServer('dev server', isFabricServer) }
+}
+
+// --- Dev-server ports ----------------------------------------------------------------------------
+// Picked on every run, never fixed per mod: the first two free ports in dev_server_ports (server,
+// then rcon), written to server.properties, where devserver.sh, the bot scripts and runClient look.
+def devPortBlock = project.dev_server_ports =~ /^\s*(\d+)\s*-\s*(\d+)\s*$/
+if (!devPortBlock.matches()) {
+	throw new GradleException("dev_server_ports must read <low>-<high>, not '${project.dev_server_ports}'.")
+}
+def devPorts = (devPortBlock.group(1) as int)..(devPortBlock.group(2) as int)
+// A server binds only after mod init, so a pick is held this long against other run dirs, or two
+// runs started together would both take the same free port.
+def portClaimDir = new File(gradle.gradleUserHomeDir, 'rkc-dev-ports')
+def portClaimMillis = 180_000
+
+def portFree = { int port ->
+	try {
+		new ServerSocket().withCloseable { socket ->
+			// Strict, so a port still in TIME_WAIT reads busy rather than failing the server's bind.
+			socket.reuseAddress = false
+			socket.bind(new InetSocketAddress(port))
+		}
+		return true
+	} catch (IOException ignored) {
+		return false
+	}
+}
+
+def pickDevPorts = { File runDir ->
+	def owner = runDir.canonicalPath
+	def picked = []
+	portClaimDir.mkdirs()
+	def lock = new File(portClaimDir, '.lock').toPath()
+	// The monitor covers parallel version nodes in this JVM; the file lock covers other builds.
+	synchronized (lock.toString().intern()) {
+		java.nio.channels.FileChannel.open(lock, java.nio.file.StandardOpenOption.CREATE,
+				java.nio.file.StandardOpenOption.WRITE).withCloseable { channel ->
+			channel.lock()
+			def now = System.currentTimeMillis()
+			for (port in devPorts) {
+				def claim = new File(portClaimDir, "${port}")
+				def claimedElsewhere = claim.exists() && now - claim.lastModified() < portClaimMillis &&
+						claim.text != owner
+				if (!claimedElsewhere && portFree(port)) {
+					claim.text = owner
+					picked << port
+					if (picked.size() == 2) {
+						break
+					}
+				}
+			}
+		}
+	}
+	if (picked.size() < 2) {
+		throw new GradleException("No two free ports left in dev_server_ports (${project.dev_server_ports}).")
+	}
+	return picked
+}
+
+def assignDevPorts = { String label, File runDir, Closure<Boolean> matches ->
+	def running = findDevServers(matches)
+	if (!running.isEmpty()) {
+		// Its ports are the ones in server.properties now; repicking would hide them.
+		throw new GradleException("${label} is already running (pid ${running*.pid().join(', ')}).")
+	}
+	def (serverPort, rconPort) = pickDevPorts(runDir)
+	def values = ['server-port': serverPort, 'query.port': serverPort, 'rcon.port': rconPort]
+	def props = new File(runDir, 'server.properties')
+	def written = [] as Set
+	def lines = (props.exists() ? props.readLines() : []).collect { line ->
+		def key = line.split('=', 2)[0].trim()
+		if (!values.containsKey(key)) {
+			return line
+		}
+		written << key
+		return "${key}=${values[key]}".toString()
+	}
+	lines += values.findAll { k, v -> !written.contains(k) }.collect { k, v -> "${k}=${v}".toString() }
+	props.text = lines.join('\n') + '\n'
+	logger.lifecycle("${label} on port ${serverPort}, rcon ${rconPort}.")
 }
 
 // --- Optional: run the mod under Quilt Loader instead of Fabric Loader ----------------------------
@@ -143,7 +231,7 @@ tasks.named('runQuiltServer', JavaExec) {
 tasks.register('stopQuiltServer') {
 	group = 'fabric'
 	description = 'Stops the dev server started by runQuiltServer, if one is running.'
-	doLast { stopDevServer('Quilt dev server', { cmd -> cmd.contains(quiltServerMarker) }) }
+	doLast { stopDevServer('Quilt dev server', isQuiltServer) }
 }
 
 // --- Dev-server defaults -------------------------------------------------------------------------
@@ -151,7 +239,7 @@ tasks.register('stopQuiltServer') {
 // needs). This seeds a usable dev world once: accept the EULA, a superflat creative world with
 // every experiment datapack on, rcon open, no watchdog, command blocks on, no mob spawning / block
 // drops / time advance, and an ops list. Everything is merge-if-absent — a hand edit always wins,
-// and `rm -rf run/` resets to these.
+// and `rm -rf run/` resets to these. The ports are the exception: every run picks them afresh.
 def devServerOps = ['Kalic0', 'LuckySkips'] + (devClientUsername ? [devClientUsername] : [])
 
 def seedDevServer = { File runDir ->
@@ -179,10 +267,7 @@ def seedDevServer = { File runDir ->
 			'enable-command-block'    : 'true',
 			'sync-chunk-writes'       : 'false',
 			'enable-rcon'             : 'true',
-			'rcon.port'               : project.dev_rcon_port,
 			'rcon.password'           : project.dev_rcon_password,
-			'server-port'             : project.dev_server_port,
-			'query.port'              : project.dev_server_port,
 			'motd'                    : "${project.mod_id} dev".toString(),
 	]
 	def props = new File(runDir, 'server.properties')
@@ -290,7 +375,7 @@ tasks.register('configureRunServer') {
 // and an empty server list, and defaults music to full volume — none of which help a dev client
 // that only ever points at this mod's own dev server. Same merge-if-absent rule as seedDevServer: a
 // hand edit always wins, and `rm -rf run/client/` resets to these.
-def seedDevClient = { File runDir ->
+def seedDevClient = { File runDir, String serverPort ->
 	runDir.mkdirs()
 
 	def defaults = [
@@ -315,8 +400,29 @@ def seedDevClient = { File runDir ->
 	// (Loom only maps them onto the mod's own compile/run classpath) — so this writes the handful of
 	// tags ServerData/ServerList actually read (root compound -> "servers" list -> one compound with
 	// "name"/"ip" strings) by hand instead of going through Mojang's writer.
+	if (serverPort == null) {
+		return  // No dev server has run yet, so there is no port to point at.
+	}
+	def serverName = "${project.mod_id} dev".toString()
+	def serverIp = "localhost:${serverPort}".toString()
 	def serversFile = new File(runDir, 'servers.dat')
-	if (!serversFile.exists()) {
+	if (serversFile.exists()) {
+		// The entry follows the server's port. NBT has no length above a string's own, so the client's
+		// re-saved file is patched in place, keeping its pack choice — only while it lists just ours.
+		def latin1 = { List<Integer> bytes -> new String(bytes as byte[], 'ISO-8859-1') }
+		def stringTag = { String name, String value ->
+			latin1([0x08, 0, name.length()]) + name + latin1([value.length() >> 8, value.length() & 0xFF]) + value
+		}
+		def nbt = new String(serversFile.bytes, 'ISO-8859-1')
+		// Bytes 13-17: the servers list's element type (compound) and count (1).
+		def onlyOurs = nbt.length() > 18 && nbt.substring(13, 18) == latin1([0x0A, 0, 0, 0, 1]) &&
+				nbt.contains(stringTag('name', serverName))
+		def patched = nbt.replaceFirst(/\x08\x00\x02ip[\x00-\xFF]{2}localhost:\d+/,
+				java.util.regex.Matcher.quoteReplacement(stringTag('ip', serverIp)))
+		if (onlyOurs && patched != nbt) {
+			serversFile.bytes = patched.getBytes('ISO-8859-1')
+		}
+	} else {
 		def writeNbtString = { DataOutputStream out, String s ->
 			def bytes = s.getBytes('UTF-8')
 			out.writeShort(bytes.length)
@@ -331,10 +437,10 @@ def seedDevClient = { File runDir ->
 			out.writeInt(1)      // element count
 			out.writeByte(0x08)  // TAG_String
 			writeNbtString(out, 'name')
-			writeNbtString(out, "${project.mod_id} dev".toString())
+			writeNbtString(out, serverName)
 			out.writeByte(0x08)  // TAG_String
 			writeNbtString(out, 'ip')
-			writeNbtString(out, "localhost:${project.dev_server_port}".toString())
+			writeNbtString(out, serverIp)
 			out.writeByte(0x00)  // TAG_End: closes the list element
 			out.writeByte(0x00)  // TAG_End: closes the root compound
 		}
@@ -346,10 +452,21 @@ tasks.register('configureRunClient') {
 	description = 'Symlinks run/client/mods to run/mods and seeds run/client with dev-client defaults.'
 	doLast {
 		ensureClientModsSymlink()
-		seedDevClient(file("${devRunDir}/client"))
+		def serverProps = file("${devRunDir}/server.properties")
+		def serverPort = serverProps.exists()
+				? serverProps.readLines().findResult { it.startsWith('server-port=') ? it.substring(12).trim() : null }
+				: null
+		seedDevClient(file("${devRunDir}/client"), serverPort)
 	}
 }
 
-tasks.named('runServer') { dependsOn 'configureRunServer' }
-tasks.named('runQuiltServer') { dependsOn 'configureRunServer' }
+// doFirst, not configureRunServer: that may run before compiling, long before the server binds.
+tasks.named('runServer') {
+	dependsOn 'configureRunServer'
+	doFirst { assignDevPorts('Dev server', file(devRunDir), isFabricServer) }
+}
+tasks.named('runQuiltServer') {
+	dependsOn 'configureRunServer'
+	doFirst { assignDevPorts('Quilt dev server', file(quiltRunDir), isQuiltServer) }
+}
 tasks.named('runClient') { dependsOn 'configureRunClient' }
