@@ -56,7 +56,7 @@ whole block is skipped. Delete the key rather than setting it to a falsey value.
 | `enable_datagen` / `datagen_client` | Fabric datagen in its own source set, and the `generateAssets` alias |
 | `kalic0re_version` / `kalic0re_shared_packages` | Shadow, and relocating the named `common/` helpers into this jar |
 | `library_only` | fabric-api and Polymer as `compileOnly`, for a jar that is never installed |
-| `dev_server_port` | `gradle/devserver.gradle` — seeded `run/` world, rcon, the Quilt run |
+| `dev_server_ports` | `gradle/devserver.gradle` — seeded `run/` world, rcon, the Quilt run, on the first free ports in the block |
 
 Two more are wired on presence of a *file*, since the file is already the declaration and a second
 switch could only disagree with it: `src/main/resources/<mod_id>.classtweaker` sets
