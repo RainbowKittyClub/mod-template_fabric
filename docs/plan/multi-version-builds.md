@@ -115,7 +115,7 @@ Commit `537eaec`, checked on 2026-10-19:
 - Their `betterbarriers-0.1.1.jar` files match entry for entry (68 entries, none differing) and keep
   the unsuffixed name.
 
-## S3 — `devserver.sh` per version — **planned**
+## S3 — `devserver.sh` per version — **done**
 
 **Build.** Add `--mc <v>` to `scripts/devserver.sh`:
 - run directory `versions/<v>/run`;
@@ -127,7 +127,23 @@ Without `--mc`, a Stonecutter mod uses its `stonecutter_vcs_version`, and a plai
 **Done when.** `start`, `rcon`, `logs`, `mixins` and `stop` work for both versions of the spike, and
 for one plain mod.
 
-## S4 — Lint for versioned blocks — **planned**
+### As built
+
+- **`scripts/devserver.sh`** (workspace, not a repo) takes `--mc <v>` right after the mod
+  directory. A mod counts as Stonecutter when it has `stonecutter.gradle`.
+- **Rejected input:** `--mc` on a plain mod, and an unknown version.
+- **Bot harness:** `readDevServer(modDir, mc)` in `scripts/loadtest/lib/devserver.js` resolves the
+  run directory the same way, with `DEV_MC` as the environment fallback, so existing bot scripts work
+  per version unchanged. Both READMEs say so.
+- **Checked on 2026-10-19:**
+  - 26.3 start, rcon, mixins, status and stop on the spike;
+  - 26.2 by default, which logged the 26.2 code path;
+  - both rejections;
+  - `status` on better-barriers, unchanged.
+- One spike port collided with another session's dev server (25790, rkcore-menu), so pick dev ports
+  with `setup.sh`'s high-water mark or the opt-in script's.
+
+## S4 — Lint for versioned blocks — **done**
 
 **Build.** In `scripts/lint`, exempt Stonecutter blocks from the `/* */` rule. Either a
 `SuppressWithPlainTextCommentFilter` scoped to that check between `//? … {` and `//?}`, or a pattern
@@ -136,7 +152,20 @@ that allows `/*` right after a `//?` line. Everything else in versioned code sta
 **Done when.** The spike's source passes lint except for its deliberate style faults, and a stray
 `/* */` outside a versioned block still fails.
 
-## S5 — Scaffold and docs — **planned**
+### As built
+
+Two edits to `scripts/lint/checkstyle.xml`:
+- A `SuppressWithNearbyTextFilter` (`nearbyTextPattern` `^\s*(\*/)?//\?`, `lineRange` 1) scoped to
+  `RegexpSinglelineJava`, so only the line right after a `//?` line may open with `/*`.
+- The rule's pattern also lets `/*?` (Stonecutter's inline condition) through.
+
+Checked on 2026-10-19:
+- A file with an if/else block and a one-line form, otherwise clean, passed.
+- A file with a bare `/* */` line, and one right after an ordinary `//` comment, failed on both.
+- `lintAll --continue` fails only on rk-tweaks, whose faults (import order, Javadoc, braces and one
+  real `/* */`) predate this. The other twelve mods pass.
+
+## S5 — Scaffold and docs — **done**
 
 **Build.**
 - `setup.sh` on `main` can opt a new mod in: per-mod controller, `versions/<v>/gradle.properties`
@@ -147,6 +176,39 @@ that allows `/*` right after a `//?` line. Everything else in versioned code sta
   ("Reset active project"), so the tree in git stays one version's code.
 
 **Done when.** A mod made with `setup.sh` and the opt-in builds both versions.
+
+### As built
+
+**`gradle/stonecutter-opt-in.sh [--key k]… <extra-version>…`** (`2d309ed`) is shared by `setup.sh`,
+S6 and S7.
+- It moves the per-version keys that are present into `versions/<base>/gradle.properties`:
+  `minecraft_version`, `fabric_version`, `polymer_version`, `bil_version`, `kalic0re_version`,
+  `datapack_format`, the dev ports and the dev datapack/options versions.
+- It gives each extra version fresh dev ports above every sibling's, and `FILL_IN` for the other
+  moved keys.
+- It adds the `stonecutter_*` keys and `dev.kikugie.stonecutter.hard_mode=true`, plus the
+  controller.
+- It appends `.gitignore` patterns only where `git check-ignore` says `build/` and `run/` aren't
+  already covered (the template's own `.gitignore` covers both).
+- The placeholder is `FILL_IN`, not `CHANGEME`, which `setup.sh` renames everywhere. `setup.sh`
+  also runs the opt-in after that rename.
+
+**`setup.sh`** (template `main`, branch `setup-stonecutter`, `9172066`) asks for extra versions,
+and a blank answer keeps a single-version mod. `TEMPLATE_URL` and `TEMPLATE_GRADLE_BRANCH` let an
+unpushed template be tried.
+
+**Docs:**
+- the workspace `docs/STYLE.md` "Multi-version builds (Stonecutter)" (opting in, `//?` blocks,
+  switching, the commit rule, dev servers, forks);
+- `docs/BUILDING.md` on branch `template-stonecutter` (what a mod records);
+- `CLAUDE.md` "Shared build logic".
+
+Checked on 2026-10-19:
+- `setup.sh` ran from a local bare copy of the template with the answer `26.3`.
+- The new mod built `scnew-0.1.0+26.2.jar`, and `:26.3:build` passed with Polymer 0.18.4 (bil's
+  26.2 build stood in, since bil has no 26.3 build).
+- On a better-barriers copy, the opt-in's 26.2 jar matches the plain build in every class and
+  resource. Only `MANIFEST.MF` and the `+26.2` version string differ.
 
 ## S6 — kalic0re for both versions — **planned**
 
