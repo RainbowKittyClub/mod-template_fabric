@@ -24,6 +24,11 @@ Record here only what applies, and delete the rest:
   which versions, which one is committed (`stonecutter_vcs_version`), and anything version-specific
   a fresh clone needs, such as a dependency that only exists for one version. Jars land in
   `versions/<v>/build/libs/<mod_id>-<version>+<v>.jar`.
+- **Releases** — a pushed `v<mod_version>` tag publishes every version's jar to this repo's GitHub
+  Packages (`publish-maven.yml`) and makes a GitHub release with the jars (`release.yml`); nothing
+  goes to Modrinth or CurseForge. Record what keeps a clean CI runner from building it: a
+  `mavenLocal()`-only dependency, a kalic0re version not in GitHub Packages, or a private package
+  this repo hasn't been given read access to.
 
 If `./gradlew build` from a fresh clone really is the whole story, delete everything below the
 command.
