@@ -210,7 +210,7 @@ Checked on 2026-10-19:
 - On a better-barriers copy, the opt-in's 26.2 jar matches the plain build in every class and
   resource. Only `MANIFEST.MF` and the `+26.2` version string differ.
 
-## S6 — kalic0re for both versions — **planned**
+## S6 — kalic0re for both versions — **done**
 
 **Build.** Opt kalic0re in and publish `kalic0re-<ver>+<mc>` to mavenLocal for each version. Every
 mod's `kalic0re_version` moves into `versions/<v>/gradle.properties`. Its datapack zip
@@ -219,7 +219,40 @@ mod's `kalic0re_version` moves into `versions/<v>/gradle.properties`. Its datapa
 **Done when.** A shading mod builds against the matching kalic0re for each version, and the
 `check-carrier-copies.sh` copies still agree.
 
-## S7 — First real mod: polymer-diagonal-walls — **planned**
+### As built
+
+kalic0re branch `stonecutter`, worktree `rkc/mods/kalic0re/.claude/worktrees/stonecutter`: `17b9861`
+for the build and `1fcd192` for the port. Not merged.
+
+**26.3 opt-in:** Fabric API 0.161.0+26.3, Polymer 0.18.4+26.3 and `datapack_format` 121 (26.3's data
+format; data version 5023). `build.mod.gradle` reads the resource packs through `rootProject.file`.
+
+**26.3 compile fixes**, each a `//?` block unless noted:
+- `PushReaction.BLOCK` became `IMMOVEABLE` (a versioned constant in `PortalBlock`).
+- Block codecs are gone, so `PortalBlock.codec()` and its import are 26.2-only.
+- `LootContext.getOptionalParameter` became `getOptional`.
+- `DataComponentPatch.entrySet()` is gone. `CargoCartItem` now reads
+  `split().added().get(ITEM_NAME)`, which works on both versions, so it needs no block.
+- Recipe datagen takes `BootstrapContext`s (`ArmorDyeRecipeProvider`).
+- Chests submit a separate crumbling overlay (`PolymerChestRenderer`, as vanilla 26.3 does).
+
+**Gap:** the Shadow enchantment's client renderers (`HiddenRendering`, `HiddenEquipmentRendering`,
+`HiddenItemRendering`) are wrapped whole in `//? if <26.3`. 26.3 removed `RenderPipeline`,
+`BindGroupLayout`, `ColorTargetState`, `DepthStencilState` and `PrimitiveTopology`. artifacts
+therefore can't build for 26.3 until those are ported to 26.3's render system. Stonecutter escapes
+nested comments (`/^*`, `^/`), so a whole-file block is safe.
+
+**Publishing.** Published to mavenLocal as `club.rainbowkitty.kalic0re:kalic0re:0.31.0+26.2` and
+`+26.3`. The shared build needed `artifactId = project.mod_id` (`194e705`): a version node's
+publication defaulted to the node's name (`26.2`).
+
+**Checked on 2026-10-19:**
+- Lint passes on the versioned source.
+- `check-carrier-copies.sh` matches.
+- polymer-diagonal-walls shades the same 10 command/text classes from each version's kalic0re
+  (S7).
+
+## S7 — First real mod: polymer-diagonal-walls — **in progress**
 
 **Build.**
 - Opt it in with 26.2 and 26.3, Polymer `0.17.5+26.2` and `0.18.x+26.3`.
@@ -231,6 +264,34 @@ mod's `kalic0re_version` moves into `versions/<v>/gradle.properties`. Its datapa
 - Both dev servers boot with every mixin applied.
 - On 26.2, `columns-check.js` passes and the lattice checks match S15 and S19.
 - On 26.3, a dev client sees arms and is blocked by the columns.
+
+### As built
+
+polymer-diagonal-walls branch `stonecutter`, worktree
+`rkc/mods/polymer-diagonal-walls/.claude/worktrees/stonecutter`: `a79f94a` (build), `090012d`
+(`layouts.sh` and `seal-legs.sh` take `DEV_MC`) and `1d2d21c` (`docs/BUILDING.md`). The source
+compiles unchanged on 26.3 with Polymer 0.18.4.
+
+Observed on 2026-10-19:
+- **Builds:** both jars build, each shading its own version's kalic0re.
+- **26.2 equals main:** the 26.2 jar matches a plain build of `main` in every class, mixin and
+  resource. Only the manifest, the `+26.2` version string and kalic0re's reshaped
+  `PermissionCondition` differ. So S15's and S19's lattice numbers stand for it unchanged.
+- **Boot:** both dev servers boot with every mixin applied. The only warnings are the Axiom
+  `@Pseudo` targets, absent as expected.
+- **26.2 checks:**
+  - layouts 18/18;
+  - `drawn` 51/51;
+  - `stats` 49 holders and 51 arms;
+  - `live` 9/9;
+  - `columns-check.js` 34/34.
+- **26.3 checks:** the same layouts, `drawn`, `stats` and `live` results, plus:
+  - `seal-legs.sh` items and arrows stopped on their side at wall A and fence H;
+  - all 30 animals stayed inside diamond G over 12,047 sprinted ticks.
+- `columns-check.js` can't run on 26.3: ViaFabric 0.4.22 has no 26.3 server module for its 26.1
+  bots.
+
+Waiting on: the user's 26.3 dev client seeing arms and being blocked by the columns.
 
 ## S8 — Datagen mods — **planned**
 
