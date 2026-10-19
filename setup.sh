@@ -5,7 +5,9 @@
 # CHANGEME/changeme placeholders.
 set -euo pipefail
 
-template_url="ssh://git@github.com/RainbowKittyClub/mod-template_fabric"
+# Overridable so a change to the template can be tried from a local clone before it's pushed.
+template_url="${TEMPLATE_URL:-ssh://git@github.com/RainbowKittyClub/mod-template_fabric}"
+gradle_branch="${TEMPLATE_GRADLE_BRANCH:-gradle}"
 
 sed_escape() { printf '%s' "$1" | sed -e 's/[&#\]/\\&/g'; }
 
@@ -60,6 +62,12 @@ prompt mod_authors "Author(s), comma-separated" "${default_author:-}"
 prompt mod_description "One-line description" ""
 prompt mod_website "GitHub repo URL" "https://github.com/RainbowKittyClub/$mod_id"
 prompt mod_license "License" "Unlicense"
+# Optional, so not through prompt(): blank keeps a single-version build.
+while true; do
+    read -rp "Extra Minecraft versions to build with Stonecutter (space-separated, blank for none): " extra_versions
+    [[ -z $extra_versions || $extra_versions =~ ^[0-9][0-9.]*( [0-9][0-9.]*)*$ ]] && break
+    echo "  versions like 26.3, separated by spaces." >&2
+done
 
 # Not prompted: every first-party mod uses this exact group, and the shipped source is already
 # laid out under src/main/java/club/rainbowkitty/ - a different group here would mismatch the
@@ -88,7 +96,7 @@ git init -q
 # symlinked in, not copied, so they stay versioned in exactly one place instead of forking per mod;
 # only gradle.properties is real per-mod state, so it's copied (from the CHANGEME-templated
 # gradle.properties.template) rather than symlinked.
-git submodule add -q -b gradle "$template_url" gradle
+git submodule add -q -b "$gradle_branch" "$template_url" gradle
 ln -s gradle/gradlew gradlew
 ln -s gradle/gradlew.bat gradlew.bat
 ln -s gradle/build.gradle build.gradle
@@ -143,6 +151,14 @@ mapfile -t files < <(grep -rl CHANGEME . --exclude-dir={.git,gradle} 2>/dev/null
 mapfile -t files < <(grep -rl changeme . --exclude-dir={.git,gradle} 2>/dev/null || true)
 [[ ${#files[@]} -gt 0 ]] && sed -i "s/changeme/$mod_id/g" "${files[@]}"
 
+# Multi-version builds: moves the per-version keys under versions/ and adds the Stonecutter keys
+# and controller. Runs after the CHANGEME renames, which would otherwise rewrite its
+# placeholders. Unquoted on purpose, one argument per version.
+if [[ -n $extra_versions ]]; then
+    # shellcheck disable=SC2086
+    gradle/stonecutter-opt-in.sh $extra_versions
+fi
+
 # This branch's job is done - hand off to the template's own README.
 mv README.template.md README.md
 
@@ -152,6 +168,9 @@ echo "  - gradle/ added as a submodule; build.gradle/settings.gradle/wrapper sym
 echo "  - gradle.properties filled in from your answers above"
 echo "  - CHANGEME/changeme placeholders renamed throughout"
 echo "  - README.md is now README.template.md's stub - fill it in"
+if [[ -n $extra_versions ]]; then
+    echo "  - opted into Stonecutter for $extra_versions - fill each FILL_IN under versions/ first"
+fi
 echo "Next: review the diff, then git add -A && git commit."
 
 rm -- "$0"
