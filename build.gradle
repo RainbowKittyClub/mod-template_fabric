@@ -332,6 +332,8 @@ if (datagenEnabled) {
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
+			// A Stonecutter version node is named after its version, which would become the artifactId.
+			artifactId = project.mod_id
 			from components.java
 		}
 	}
