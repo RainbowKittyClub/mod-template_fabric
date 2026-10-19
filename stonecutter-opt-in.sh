@@ -6,12 +6,12 @@
 # The mod's current minecraft_version becomes the committed version (stonecutter_vcs_version), and
 # each <extra-version> gets its own node under versions/. Keys that differ per version move from
 # gradle.properties into versions/<v>/gradle.properties: the list below plus any --key. For an extra
-# version, minecraft_version and the dev ports are filled in; every other moved key is FILL_IN, for
-# the dependency version that matches that Minecraft version.
+# version, minecraft_version is filled in; every other moved key is FILL_IN, for the dependency
+# version that matches that Minecraft version. Dev ports need nothing: each run picks its own.
 set -euo pipefail
 
 per_version_keys=(minecraft_version fabric_version polymer_version bil_version kalic0re_version
-    datapack_format dev_server_port dev_rcon_port dev_datapack_pack_format dev_client_options_version)
+    datapack_format dev_datapack_pack_format dev_client_options_version)
 extras=()
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -27,21 +27,6 @@ done
 prop() { grep -m1 -E "^$1 ?=" gradle.properties | cut -d= -f2- | sed 's/^ //'; }
 base=$(prop minecraft_version)
 [[ -n $base ]] || { echo "no minecraft_version in gradle.properties" >&2; exit 1; }
-
-# Same high-water mark as setup.sh, now also over every sibling's per-version files. Siblings are
-# found beside the main checkout, so this also works from a worktree under .claude/worktrees/.
-mods_dir=..
-if common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
-    mods_dir=$(dirname "$(dirname "$common")")
-fi
-highest=0
-shopt -s nullglob
-for f in "$mods_dir"/*/gradle.properties "$mods_dir"/*/versions/*/gradle.properties gradle.properties; do
-    [[ -f $f ]] || continue
-    for v in $(grep -E '^dev_(server|rcon)_port=' "$f" 2>/dev/null | cut -d= -f2); do
-        (( v > highest )) && highest=$v
-    done
-done
 
 mkdir -p "versions/$base"
 moved=()
@@ -63,8 +48,6 @@ for v in "${extras[@]}"; do
     for key in "${moved[@]}"; do
         case $key in
             minecraft_version) value=$v ;;
-            dev_server_port) highest=$((highest + 2)); value=$highest ;;
-            dev_rcon_port) highest=$((highest + 2)); value=$highest ;;
             *) value=FILL_IN; todo+=("versions/$v/gradle.properties: $key") ;;
         esac
         echo "$key=$value" >> "versions/$v/gradle.properties"
