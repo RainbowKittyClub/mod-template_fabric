@@ -5,8 +5,9 @@
 # CHANGEME/changeme placeholders.
 set -euo pipefail
 
-# Overridable so a change to the template can be tried from a local clone before it's pushed.
-template_url="${TEMPLATE_URL:-ssh://git@github.com/RainbowKittyClub/mod-template_fabric}"
+# Overridable so a change to the template can be tried from a local clone before it's pushed. https,
+# since this also lands in .gitmodules and the release workflows' checkout has no SSH key.
+template_url="${TEMPLATE_URL:-https://github.com/RainbowKittyClub/mod-template_fabric}"
 gradle_branch="${TEMPLATE_GRADLE_BRANCH:-gradle}"
 
 sed_escape() { printf '%s' "$1" | sed -e 's/[&#\]/\\&/g'; }
