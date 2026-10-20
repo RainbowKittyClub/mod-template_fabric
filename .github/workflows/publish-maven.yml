@@ -6,6 +6,8 @@ on:
   push:
     tags:
       - "v*"
+  # Re-run for an existing tag: choose the tag, not a branch, under "Use workflow from".
+  workflow_dispatch:
 
 permissions:
   contents: read
