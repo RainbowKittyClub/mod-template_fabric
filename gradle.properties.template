@@ -36,11 +36,11 @@ fabric_permissions_api_version=0.7.0
 enable_datagen=true
 datagen_client=true
 
-# kalic0re's shared helpers, taken from mavenLocal and relocated into this jar rather than depended
+# kalic0re's shared helpers, from GitHub Packages and relocated into this jar rather than depended
 # on (see CLAUDE.md, "Sharing code between mods"). List only the common/ subpackages actually used —
-# importing one that isn't listed then fails to compile instead of silently bundling it. Republish
-# with `cd rkc/mods/kalic0re && ./gradlew publishToMavenLocal` after changing a shared package.
-# kalic0re_version=0.13.0
+# importing one that isn't listed then fails to compile instead of silently bundling it. A local
+# `cd rkc/mods/kalic0re && ./gradlew publishToMavenLocal` build wins over GitHub Packages.
+# kalic0re_version=0.31.0+26.2
 # kalic0re_shared_packages=item,datagen
 
 # Set on kalic0re itself: declares fabric-api/Polymer compileOnly, so a jar that is never installed
