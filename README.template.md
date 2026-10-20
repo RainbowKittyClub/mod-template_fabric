@@ -30,8 +30,3 @@ _Include a gamerules table, if relevant._
 | Key | Description |
 | --- | --- |
 | `gamerulekey` | A short description of what the rule changes. |
-
-
-## Building
-
-See [`docs/BUILDING.md`](docs/BUILDING.md).
