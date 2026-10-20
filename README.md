@@ -9,7 +9,7 @@ linting, datagen, the dev-server lifecycle.
 This repo is split across three branches, none of them meant to be cloned except `main`:
 
 - **`main`** (this branch) — this file and `setup.sh`. What a plain `git clone` gets you.
-- **`template`** — the actual example source and docs (`src/`, `docs/`, `README.template.md`).
+- **`template`** — the actual example source, workflows and `README.template.md`.
   `setup.sh` pulls it in.
 - **`gradle`** — `build.gradle`, `settings.gradle`, `gradle.properties.template`, the wrapper and
   `devserver.gradle`: generic enough to be identical across every mod, so it's a submodule instead
@@ -65,8 +65,8 @@ With those answers in hand, `setup.sh`:
 8. `mv README.template.md README.md` — replaces this file with the new mod's own (now-renamed)
    README.
 
-Fill in the swapped-in `README.md`: what the mod does and how to install it. Build specifics go in
-`docs/BUILDING.md`; feature plan docs go under `docs/plan/` (see `PLANNING.md`).
+Fill in the swapped-in `README.md`: what the mod does and how to install it. Feature plan docs
+live outside the repo, in the workspace's `rkc/docs/<mod>/plan/` (see `docs/PLANNING.md`).
 
 ## Polymer: client-optional content
 

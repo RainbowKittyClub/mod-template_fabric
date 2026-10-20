@@ -64,7 +64,7 @@ for i in "${!author_list[@]}"; do
 done
 mod_authors_json+="]"
 
-# Vendor the template branch's files (source, docs, its future README.template.md) into the
+# Vendor the template branch's files (source, workflows, its future README.template.md) into the
 # working tree. This branch has no README.md of its own for checkout to collide with - the doc
 # you're reading now stays put until near the end of this script, when it's replaced.
 git fetch -q "$template_url" template
