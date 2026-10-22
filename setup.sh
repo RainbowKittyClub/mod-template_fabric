@@ -43,7 +43,7 @@ default_author=$(git config user.name 2>/dev/null || true)
 prompt mod_authors "Author(s), comma-separated" "${default_author:-}"
 prompt mod_description "One-line description" ""
 prompt mod_website "GitHub repo URL" "https://github.com/RainbowKittyClub/$mod_id"
-prompt mod_license "License" "Unlicense"
+prompt mod_license "License" "CC0-1.0"
 # Optional, so not through prompt(): blank keeps a single-version build.
 while true; do
     read -rp "Extra Minecraft versions to build with Stonecutter (space-separated, blank for none): " extra_versions
