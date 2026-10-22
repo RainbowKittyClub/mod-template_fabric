@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Run from inside a fresh `git clone` of fabric_mod_skeleton (this, the main branch), before
-# committing anything else. See README.md for what this does command-by-command, why the gradle
-# submodule's files are symlinked rather than copied, and how the prompts below map onto the
-# CHANGEME/changeme placeholders.
+# Run from inside a fresh `git clone` of mod-template_fabric (this, the main branch), before
+# committing anything else. Asks for the mod's details, vendors the template branch, adds the gradle
+# branch as a submodule with its files symlinked in, and renames the CHANGEME/changeme placeholders.
 set -euo pipefail
 
 # Overridable so a change to the template can be tried from a local clone before it's pushed. https,
@@ -64,9 +63,7 @@ for i in "${!author_list[@]}"; do
 done
 mod_authors_json+="]"
 
-# Vendor the template branch's files (source, workflows, its future README.template.md) into the
-# working tree. This branch has no README.md of its own for checkout to collide with - the doc
-# you're reading now stays put until near the end of this script, when it's replaced.
+# Vendor the template branch's files (source, workflows) into the working tree.
 git fetch -q "$template_url" template
 git checkout -q FETCH_HEAD -- .
 
@@ -127,15 +124,11 @@ if [[ -n $extra_versions ]]; then
     gradle/stonecutter-opt-in.sh $extra_versions
 fi
 
-# This branch's job is done - hand off to the template's own README.
-mv README.template.md README.md
-
 echo
 echo "Done. $mod_id is ready at $(pwd):"
 echo "  - gradle/ added as a submodule; build.gradle/settings.gradle/wrapper symlinked in"
 echo "  - gradle.properties filled in from your answers above"
 echo "  - CHANGEME/changeme placeholders renamed throughout"
-echo "  - README.md is now README.template.md's stub - fill it in"
 if [[ -n $extra_versions ]]; then
     echo "  - opted into Stonecutter for $extra_versions - fill each FILL_IN under versions/ first"
 fi
