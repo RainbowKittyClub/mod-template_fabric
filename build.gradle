@@ -282,6 +282,9 @@ def cleanStrayClaudeDirs = tasks.register('cleanStrayClaudeDirs') {
 tasks.withType(ProcessResources).configureEach {
 	dependsOn cleanStrayClaudeDirs
 	exclude '**/.claude/**'
+	// Aseprite sources may sit beside the PNGs they export; only the PNGs ship, in the jar and the
+	// Polymer pack.
+	exclude '**/*.aseprite'
 }
 
 processResources {
