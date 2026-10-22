@@ -24,7 +24,7 @@ public class CHANGEME implements ModInitializer {
         // Example content demonstrating client-optional Polymer: a real block for clients running
         // this mod, a Polymer substitute for everyone else. Delete the content/ and polymer/
         // packages plus the example_block assets/data once you have your own content, or build on
-        // it. See README "Polymer: client-optional content".
+        // it. Only PolymerIntegration touches Polymer, so the jar also loads without it.
         if (FabricLoader.getInstance().isModLoaded("polymer-core")) {
             club.rainbowkitty.changeme.polymer.PolymerIntegration.register();
         } else {
