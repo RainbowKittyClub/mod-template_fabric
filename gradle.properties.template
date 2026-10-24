@@ -7,14 +7,16 @@ org.gradle.configuration-cache=false
 # Fabric Properties
 # check these on https://fabricmc.net/develop
 # Minecraft ships deobfuscated since 26.1, so there is no mappings artifact.
-minecraft_version=26.2
-fabric_loader_version=0.19.3
-fabric_version=0.157.0+26.2
+minecraft_version=26.3
+fabric_loader_version=0.19.5
+fabric_version=0.162.0+26.3
 loom_version=1.17.19
 shadow_version=9.6.1
 # Used only once gradle/stonecutter-opt-in.sh adds stonecutter_versions (multi-version builds).
 stonecutter_version=0.9.8
-polymer_version=0.17.3+26.2
+# The RKC Polymer fork: a version with -rkc. resolves from its GitHub Packages, a stock one from
+# Nucleoid. Releases tagged since the fork moved one patch past upstream are <upstream + 1>-rkc.<n>.
+polymer_version=0.18.5-rkc.4+26.3
 
 # Java toolchain — read by build.gradle, fabric.mod.json and the mixins json. One place to bump.
 java_version=25
@@ -25,8 +27,9 @@ java_version=25
 
 # Blockbench Import Library, for animated virtual-entity models. Pulls fabric-permissions-api in
 # alongside it (bil's /bil command needs it). Delete both lines and the fabric.mod.json entry if
-# this mod has no animated models.
-bil_version=2.1.3+26.2
+# this mod has no animated models. FILL_IN: bil comes from a local build, whose 26.3 version this
+# template doesn't know yet.
+bil_version=FILL_IN
 bil_min_version=2.0.5
 fabric_permissions_api_version=0.7.0
 
@@ -54,13 +57,13 @@ datagen_client=true
 # run/server.properties. Keep it clear of 25565–25567, which Docker publishes.
 dev_server_ports=25600-25800
 dev_rcon_password=dev
-# Datapack pack_format for the seeded dev-defaults pack. 107 = MC 26.2; bump with minecraft_version.
+# Datapack pack_format for the seeded dev-defaults pack. 121 = MC 26.3; bump with minecraft_version.
 # A mod that ships its own datapacks can drop this and set datapack_pack_format instead — one
 # property for every pack in the project.
-dev_datapack_pack_format=107
+dev_datapack_pack_format=121
 # Data version stamped into the seeded options.txt. Without it the client treats the file as schema 0,
-# datafixing its key_ entries throws, and no seeded option applies. 4903 = MC 26.2; bump alongside.
-dev_client_options_version=4903
+# datafixing its key_ entries throws, and no seeded option applies. 5023 = MC 26.3; bump alongside.
+dev_client_options_version=5023
 # Name the dev client joins under. Present, it skips the offline-mode name prompt and is opped in
 # the seeded run/ops.json; delete it to be prompted and join as whoever you type.
 dev_client_username=TestPlayer
