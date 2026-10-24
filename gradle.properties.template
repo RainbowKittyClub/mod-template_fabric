@@ -14,7 +14,9 @@ loom_version=1.17.19
 shadow_version=9.6.1
 # Used only once gradle/stonecutter-opt-in.sh adds stonecutter_versions (multi-version builds).
 stonecutter_version=0.9.8
-polymer_version=0.17.3+26.2
+# The RKC Polymer fork: a version with -rkc. resolves from its GitHub Packages, a stock one from
+# Nucleoid. Releases tagged since the fork moved one patch past upstream are <upstream + 1>-rkc.<n>.
+polymer_version=0.17.5-rkc.2+26.2
 
 # Java toolchain — read by build.gradle, fabric.mod.json and the mixins json. One place to bump.
 java_version=25

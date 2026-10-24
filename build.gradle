@@ -49,7 +49,7 @@ repositories {
 	// bil releases go to CurseForge (not a maven) while maven.tomalbrc.de stops at 1.1.13+1.21, so
 	// it comes from a local build. A local kalic0re or Polymer fork build wins over GitHub too.
 	mavenLocal()
-	// The RKC Polymer fork, as <upstream>-rkc.<n>+<minecraft>; stock versions still come from Nucleoid.
+	// The RKC Polymer fork, as <upstream + 1 patch>-rkc.<n>+<minecraft>; stock versions still come from Nucleoid.
 	githubPackages(repositories, 'PolymerFork', 'RainbowKittyClub/polymer') {
 		it.includeVersionByRegex('eu\\.pb4', '.*', '.*-rkc\\..*')
 	}
