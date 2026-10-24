@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Shared steps of a mod's tag workflows (.github/workflows/publish-maven.yml and release.yml), run
-# from the mod root so the logic is versioned with the build:
+# Shared steps of a mod's workflows (.github/workflows/build.yml, publish-maven.yml, release.yml),
+# run from the mod root so the logic is versioned with the build:
 #
 #   gradle/ci/release.sh env              check the tag is v<mod_version>; write RELEASE_VERSION,
 #                                         JAVA_VERSION and PRERELEASE to $GITHUB_ENV
+#   gradle/ci/release.sh java             write JAVA_VERSION to $GITHUB_ENV, for an untagged build
 #   gradle/ci/release.sh gradle <task>…   run datagen first if the mod has it, then each task once
 #                                         per Stonecutter version node (or as given for one version)
 #   gradle/ci/release.sh jars             the jars a GitHub release attaches, one per line
@@ -52,6 +53,11 @@ case "${1:-}" in
             # A semver pre-release (0.2.0-beta.1) makes a GitHub pre-release.
             [[ $mod_version == *-* ]] && echo "PRERELEASE=true" || echo "PRERELEASE=false"
         } >> "$GITHUB_ENV"
+        ;;
+    java)
+        java_version=$(prop java_version)
+        [[ -n $java_version ]] || { echo "gradle.properties lacks java_version" >&2; exit 1; }
+        echo "JAVA_VERSION=$java_version" >> "$GITHUB_ENV"
         ;;
     gradle)
         shift
