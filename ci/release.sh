@@ -22,7 +22,7 @@ versions() {
     prop stonecutter_versions | tr ',' '\n' | sed 's/[[:space:]]//g; /^$/d'
 }
 
-# Each task once per version node (":26.2:build"), or as given for a single-version build.
+# Each task once per version node (":26.3:build"), or as given for a single-version build.
 node_tasks() {
     local -a prefixes
     mapfile -t prefixes < <(versions | sed 's/.*/:&:/')
