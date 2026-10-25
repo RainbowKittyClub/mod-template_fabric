@@ -6,7 +6,7 @@
 #                                         JAVA_VERSION and PRERELEASE to $GITHUB_ENV
 #   gradle/ci/release.sh java             write JAVA_VERSION to $GITHUB_ENV, for an untagged build
 #   gradle/ci/release.sh gradle <task>…   run datagen first if the mod has it, then each task once
-#                                         per Stonecutter version node (or as given for one version)
+#                                         per Stonecutter version node; a -option goes once, as given
 #   gradle/ci/release.sh jars             the jars a GitHub release attaches, one per line
 set -euo pipefail
 
@@ -61,19 +61,24 @@ case "${1:-}" in
         ;;
     gradle)
         shift
-        [[ $# -gt 0 ]] || { echo "name at least one task" >&2; exit 2; }
+        options=()
+        given=()
+        for arg in "$@"; do
+            if [[ $arg == -* ]]; then options+=("$arg"); else given+=("$arg"); fi
+        done
+        [[ ${#given[@]} -gt 0 ]] || { echo "name at least one task" >&2; exit 2; }
         if [[ -n $(prop enable_datagen) ]]; then
             # Never generateAssets and build in one invocation: processResources would run first and
             # the jar would miss the output. Client datagen boots a real client, so it needs a display.
             mapfile -t datagen < <(node_tasks generateAssets)
             if [[ $(prop datagen_client) == true ]] && command -v xvfb-run > /dev/null; then
-                xvfb-run -a ./gradlew --no-daemon "${datagen[@]}"
+                xvfb-run -a ./gradlew --no-daemon ${options[@]+"${options[@]}"} "${datagen[@]}"
             else
-                ./gradlew --no-daemon "${datagen[@]}"
+                ./gradlew --no-daemon ${options[@]+"${options[@]}"} "${datagen[@]}"
             fi
         fi
-        mapfile -t tasks < <(node_tasks "$@")
-        ./gradlew --no-daemon "${tasks[@]}"
+        mapfile -t tasks < <(node_tasks "${given[@]}")
+        ./gradlew --no-daemon ${options[@]+"${options[@]}"} "${tasks[@]}"
         ;;
     jars)
         mapfile -t dirs < <(versions | sed 's#.*#versions/&/build/libs#')
