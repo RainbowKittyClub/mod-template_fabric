@@ -45,13 +45,31 @@ def githubPackages = { RepositoryHandler repos, String repoName, String repoSlug
 	}
 }
 
+// Which Polymer to resolve: the RKC fork's -rkc builds or upstream's stock ones, never a mix.
+// polymer_source picks one; without it, a polymer_version naming -rkc means the fork. A fork
+// version resolves against upstream as <major>.<minor>.+, so CI can compile any mod against both.
+def polymerSource = project.findProperty('polymer_source')
+		?: (project.findProperty('polymer_version')?.contains('-rkc') ? 'fork' : 'upstream')
+if (!(polymerSource in ['fork', 'upstream'])) {
+	throw new GradleException("polymer_source must be fork or upstream, got '${polymerSource}'")
+}
+def polymerVersion = project.findProperty('polymer_version')
+if (polymerVersion && polymerSource == 'upstream' && polymerVersion.contains('-rkc')) {
+	def minor = polymerVersion =~ /^(\d+\.\d+)\./
+	if (minor.find()) {
+		polymerVersion = "${minor.group(1)}.+"
+	}
+}
+
 repositories {
 	// bil releases go to CurseForge (not a maven) while maven.tomalbrc.de stops at 1.1.13+1.21, so
 	// it comes from a local build. A local kalic0re or Polymer fork build wins over GitHub too.
 	mavenLocal()
-	// The RKC Polymer fork, as <upstream + 1 patch>-rkc.<n>+<minecraft>; stock versions still come from Nucleoid.
-	githubPackages(repositories, 'PolymerFork', 'RainbowKittyClub/polymer') {
-		it.includeVersionByRegex('eu\\.pb4', '.*', '.*-rkc\\..*')
+	// The RKC Polymer fork (<upstream + 1 patch>-rkc.<n>+<minecraft>), for fork builds only.
+	if (polymerSource == 'fork') {
+		githubPackages(repositories, 'PolymerFork', 'RainbowKittyClub/polymer') {
+			it.includeVersionByRegex('eu\\.pb4', '.*', '.*-rkc\\..*')
+		}
 	}
 	githubPackages(repositories, 'Kalic0re', 'RainbowKittyClub/Kalic0re') {
 		it.includeGroup('club.rainbowkitty.kalic0re')
@@ -59,6 +77,12 @@ repositories {
 	maven {
 		name = 'Nucleoid'
 		url = 'https://maven.nucleoid.xyz'
+		// Upstream Polymer outside fork builds; Patbox's other libraries always.
+		if (polymerSource == 'fork') {
+			content {
+				it.excludeModuleByRegex('eu\\.pb4', 'polymer-.*')
+			}
+		}
 	}
 	maven {
 		name = 'Modrinth'
@@ -157,7 +181,7 @@ dependencies {
 	add(apiScope, "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}")
 
 	if (project.hasProperty('polymer_version')) {
-		add(apiScope, "eu.pb4:polymer-bundled:${project.polymer_version}")
+		add(apiScope, "eu.pb4:polymer-bundled:${polymerVersion}")
 	}
 	// Gradle ranks a fork's 0.17.5-rkc.1 below a stock 0.17.5, so a transitive stock Polymer would
 	// win the conflict and the dev server would quietly run stock. One Polymer for the whole build.
@@ -165,9 +189,11 @@ dependencies {
 		configurations.configureEach {
 			resolutionStrategy.eachDependency { details ->
 				if (details.requested.group == 'eu.pb4' && details.requested.name.startsWith('polymer-')) {
-					details.useVersion(project.polymer_version)
+					details.useVersion(polymerVersion)
 				}
 			}
+			// A prefix polymer_version (0.18.6-rkc.+) rechecks for new fork builds every 10 minutes.
+			resolutionStrategy.cacheDynamicVersionsFor(10, 'minutes')
 		}
 	}
 
@@ -383,6 +409,12 @@ publishing {
 			// A Stonecutter version node is named after its version, which would become the artifactId.
 			artifactId = project.mod_id
 			from components.java
+			// Publishes what a dynamic version, such as a polymer_version prefix, resolved to.
+			versionMapping {
+				allVariants {
+					fromResolutionResult()
+				}
+			}
 		}
 	}
 }

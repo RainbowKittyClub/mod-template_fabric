@@ -52,6 +52,7 @@ whole block is skipped. Delete the key rather than setting it to a falsey value.
 | Key | Turns on |
 | --- | --- |
 | `polymer_version` | the Polymer dependency |
+| `polymer_source` | `fork` or `upstream` Polymer; without it, a `polymer_version` naming `-rkc` means the fork |
 | `bil_version` | Blockbench Import Library, plus the `fabric_permissions_api_version` JiJ it needs |
 | `enable_datagen` / `datagen_client` | Fabric datagen in its own source set, and the `generateAssets` alias |
 | `kalic0re_version` / `kalic0re_shared_packages` | Shadow, and relocating the named `common/` helpers into this jar |
