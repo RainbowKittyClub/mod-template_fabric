@@ -383,6 +383,12 @@ publishing {
 			// A Stonecutter version node is named after its version, which would become the artifactId.
 			artifactId = project.mod_id
 			from components.java
+			// Publishes what a dynamic version, such as a polymer_version prefix, resolved to.
+			versionMapping {
+				allVariants {
+					fromResolutionResult()
+				}
+			}
 		}
 	}
 }
