@@ -22,7 +22,14 @@ jobs:
   build:
     # A pull request from a branch of this repository was already built by that branch's push.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    name: build (${{ matrix.polymer_source }} Polymer)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # fork is what the dev server runs; upstream fails on API only the fork has. A mod that uses
+        # fork API on purpose, or has no Polymer, drops upstream.
+        polymer_source: [fork, upstream]
 
     steps:
       - name: Check out source
@@ -41,6 +48,6 @@ jobs:
           cache: gradle
 
       - name: Build
-        run: gradle/ci/release.sh gradle build
+        run: gradle/ci/release.sh gradle build -Ppolymer_source=${{ matrix.polymer_source }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
