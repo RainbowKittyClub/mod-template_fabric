@@ -168,6 +168,8 @@ dependencies {
 					details.useVersion(project.polymer_version)
 				}
 			}
+			// A prefix polymer_version (0.18.6-rkc.+) rechecks for new fork builds every 10 minutes.
+			resolutionStrategy.cacheDynamicVersionsFor(10, 'minutes')
 		}
 	}
 
