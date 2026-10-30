@@ -25,18 +25,21 @@ group = project.maven_group
 
 // GitHub Packages wants a token even to read a public package. CI passes GITHUB_ACTOR/GITHUB_TOKEN;
 // a local build reads gpr.user/gpr.key from ~/.gradle/gradle.properties (read:packages, plus
-// write:packages to publish). Without them a lookup there fails with 401.
+// write:packages to publish). Cross-repo CI reads use GITHUB_PACKAGES_READ_TOKEN; publishing
+// keeps GITHUB_TOKEN. Without credentials a lookup there fails with 401.
 def githubUser = System.getenv('GITHUB_ACTOR') ?: project.findProperty('gpr.user')
 def githubToken = System.getenv('GITHUB_TOKEN') ?: project.findProperty('gpr.key')
+def githubReadToken = System.getenv('GITHUB_PACKAGES_READ_TOKEN') ?: githubToken
 def githubPackages = { RepositoryHandler repos, String repoName, String repoSlug,
-		Action<RepositoryContentDescriptor> only ->
+		Action<RepositoryContentDescriptor> only, boolean forPublishing = false ->
+	def token = forPublishing ? githubToken : githubReadToken
 	repos.maven {
 		name = repoName
 		url = uri("https://maven.pkg.github.com/${repoSlug}")
-		if (githubUser && githubToken) {
+		if (githubUser && token) {
 			credentials {
 				username = githubUser
-				password = githubToken
+				password = token
 			}
 		}
 		if (only) {
@@ -73,6 +76,16 @@ repositories {
 	}
 	githubPackages(repositories, 'Kalic0re', 'RainbowKittyClub/Kalic0re') {
 		it.includeGroup('club.rainbowkitty.kalic0re')
+	}
+	if (project.findProperty('rkcore_menu_version')) {
+		githubPackages(repositories, 'RKCoreMenu', 'RainbowKittyClub/rkcore-menu') {
+			it.includeGroup('club.rainbowkitty.rkcoremenu')
+		}
+	}
+	if (project.findProperty('rkcore_common_version')) {
+		githubPackages(repositories, 'RKCoreCommon', 'RainbowKittyClub/rkcore-common') {
+			it.includeGroup('club.rainbowkitty.rkcorecommon')
+		}
 	}
 	maven {
 		name = 'Nucleoid'
@@ -424,7 +437,7 @@ publishing {
 def websiteSlug = project.mod_website =~ /github\.com\/([^\/]+\/[^\/]+?)(?:\.git)?\/?$/
 def publishSlug = System.getenv('GITHUB_REPOSITORY') ?: (websiteSlug.find() ? websiteSlug.group(1) : null)
 if (publishSlug) {
-	githubPackages(publishing.repositories, 'GitHubPackages', publishSlug, null)
+	githubPackages(publishing.repositories, 'GitHubPackages', publishSlug, null, true)
 }
 
 // Anything that genuinely cannot be made generic: per-mod dependencies, extra run arguments, checks
