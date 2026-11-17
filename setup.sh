@@ -35,7 +35,7 @@ prompt() {
 
 # Gather every answer before touching anything, so a Ctrl-C mid-prompt leaves a clean checkout.
 echo "Setting up a new mod from fabric_mod_skeleton. Ctrl-C any time to abort without changes."
-prompt mod_id "Mod id (one lowercase word, e.g. rktweaks)" "" '^[a-z][a-z0-9]*$'
+prompt mod_id "Mod id (one lowercase word, e.g. sensiblestorage)" "" '^[a-z][a-z0-9]*$'
 prompt entry_class "Entrypoint class name" "Main" '^[A-Z][A-Za-z0-9]*$'
 prompt mod_name "Display name" "$(tr '[:lower:]' '[:upper:]' <<< "${mod_id:0:1}")${mod_id:1}"
 default_author=$(git config user.name 2>/dev/null || true)
