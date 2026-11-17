@@ -77,14 +77,14 @@ repositories {
 	githubPackages(repositories, 'Kalic0re', 'RainbowKittyClub/Kalic0re') {
 		it.includeGroup('club.rainbowkitty.kalic0re')
 	}
-	if (project.findProperty('rkcore_menu_version')) {
-		githubPackages(repositories, 'RKCoreMenu', 'RainbowKittyClub/rkcore-menu') {
-			it.includeGroup('club.rainbowkitty.rkcoremenu')
+	if (project.findProperty('rkc_menu_version')) {
+		githubPackages(repositories, 'RkcMenu', 'RainbowKittyClub/rkc-menu') {
+			it.includeGroup('club.rainbowkitty.rkc.menu')
 		}
 	}
-	if (project.findProperty('rkcore_common_version')) {
-		githubPackages(repositories, 'RKCoreCommon', 'RainbowKittyClub/rkcore-common') {
-			it.includeGroup('club.rainbowkitty.rkcorecommon')
+	if (project.findProperty('rkc_core_version')) {
+		githubPackages(repositories, 'RkcCore', 'RainbowKittyClub/rkc-core') {
+			it.includeGroup('club.rainbowkitty.rkc.core')
 		}
 	}
 	maven {
